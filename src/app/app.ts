@@ -458,13 +458,16 @@ export class App implements AfterViewInit, OnDestroy {
     const frame = this.previewFrame?.nativeElement;
     if (frame && typeof ResizeObserver === 'function') {
       let width = frame.clientWidth;
+      let frameRequest = 0;
       const observer = new ResizeObserver(() => {
         if (frame.clientWidth === width) return;
         width = frame.clientWidth;
-        this.fitPreviewFrame();
+        // Resizing inside the callback would trigger "ResizeObserver loop" errors, so defer to the next frame.
+        cancelAnimationFrame(frameRequest);
+        frameRequest = requestAnimationFrame(() => this.fitPreviewFrame());
       });
       observer.observe(frame);
-      this.scrollCleanup.push(() => observer.disconnect());
+      this.scrollCleanup.push(() => observer.disconnect(), () => cancelAnimationFrame(frameRequest));
     }
   }
 

@@ -1,5 +1,4 @@
 import { driver, type DriveStep } from 'driver.js';
-import 'driver.js/dist/driver.css';
 
 export const TOUR_STORAGE_KEY = 'dotx-mailmerge.tour-done.v1';
 
