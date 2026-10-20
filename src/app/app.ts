@@ -505,7 +505,17 @@ export class App implements AfterViewInit, OnDestroy {
 
     const editorRule = `.milkdown-editor,.milkdown-editor .editor{background-color:${theme.colors.editorBackground};color:${theme.colors.editorForeground}}`;
     const styleRules = this.createThemeStyleRules(theme, rules);
-    return `${editorRule}\n${styleRules}`;
+    return `${editorRule}\n${styleRules}\n${this.createListLayoutCss('.milkdown-editor')}`;
+  }
+
+  // Shared by the editor and the email so lists look identical (Tailwind's reset removes markers in the editor).
+  private createListLayoutCss(scope: string): string {
+    return [
+      `${scope} ul{list-style-type:disc;padding-left:24px}`,
+      `${scope} ol{list-style-type:decimal;padding-left:24px}`,
+      `${scope} ul ul{list-style-type:circle}`,
+      `${scope} li p{margin-top:0;margin-bottom:0}`,
+    ].join('\n');
   }
 
   private createEmailThemeCss(theme: DocumentTheme): string {
@@ -530,7 +540,10 @@ export class App implements AfterViewInit, OnDestroy {
       ['.email-content .intense-ref', 'intenseReference'],
     ];
 
-    return this.createThemeStyleRules(theme, rules).replace(/<\/style/gi, '<\\/style');
+    return `${this.createThemeStyleRules(theme, rules)}\n${this.createListLayoutCss('.email-content')}`.replace(
+      /<\/style/gi,
+      '<\\/style',
+    );
   }
 
   private createThemeStyleRules(theme: DocumentTheme, rules: [string, ThemeStyleName][]): string {
