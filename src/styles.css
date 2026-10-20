@@ -312,3 +312,20 @@ body {
 .app-dark input {
   color-scheme: dark;
 }
+
+.app-dark .driver-popover {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+.app-dark .driver-popover-title,
+.app-dark .driver-popover-description,
+.app-dark .driver-popover-progress-text {
+  color: var(--ui-text);
+}
+
+.app-dark .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: var(--ui-surface); }
+.app-dark .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: var(--ui-surface); }
+.app-dark .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--ui-surface); }
+.app-dark .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: var(--ui-surface); }
