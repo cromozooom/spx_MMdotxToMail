@@ -119,6 +119,12 @@ type ToolbarCommand =
                 (change)="onThemeFileSelected($event)"
               >
             </label>
+            <p class="text-xs leading-5 text-slate-500">
+              <strong>Download .dotx</strong> builds a Word template from the active theme. To get one for your own
+              theme, first <strong>Upload JSON</strong> (it becomes the active theme), then download the .dotx.
+              <strong>Download JSON</strong> saves the active theme so you can edit, share or re-upload it.
+              The default theme is also available as a sample in the repo's <code>samples/</code> folder.
+            </p>
           </div>
         </section>
 

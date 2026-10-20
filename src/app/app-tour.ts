@@ -9,7 +9,7 @@ const TOUR_STEPS: DriveStep[] = [
     popover: {
       title: 'Theme library',
       description:
-        'Pick the active theme that styles both the editor and the email. Download or upload it as JSON, or export a Word .dotx starter with matching styles.',
+        'A theme controls fonts, sizes, colours and quote/list styles for both the editor and the email. 1) Pick the active theme, or Upload JSON to load your own (it is added to the list and saved in this browser). 2) Download .dotx to get a Word template whose styles match that theme, so documents written in Word import with the right look. 3) Download JSON to share or back up a theme. Tip: upload your JSON first, then download the .dotx for it.',
       side: 'right',
     },
   },
