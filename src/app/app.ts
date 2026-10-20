@@ -1,5 +1,16 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { DotxStarterService } from './dotx-starter.service';
+import {
+  DEFAULT_EMAIL_CLIENT,
+  EmailClient,
+  GMAIL_FILTER,
+  GMAIL_IFRAME_BACKGROUND,
+  PreviewMode,
+  PreviewPalette,
+  applyPreviewMode,
+} from './email-preview-mode';
+
+type PreviewClient = 'default' | EmailClient;
 import { AppShellComponent } from './layout/app-shell.component';
 import { PanelComponent } from './layout/panel.component';
 import { SplitPaneComponent } from './layout/split-pane.component';
@@ -45,6 +56,10 @@ Best,
 The team`;
 
 const themeStorageKey = 'dotx-mailmerge.theme-library.v1';
+const previewStorageKey = 'dotx-mailmerge.preview-mode.v1';
+const appThemeStorageKey = 'dotx-mailmerge.app-theme.v1';
+
+type AppTheme = 'light' | 'dark' | 'system';
 const defaultRevisionKey = 'dotx-mailmerge.default-theme-revision';
 
 type ToolbarCommand =
@@ -62,11 +77,17 @@ type ToolbarCommand =
   template: `
     <app-shell>
       <div shellHeader class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">Dotx Mailmerge</p>
-          <h1 class="mt-1 text-xl font-bold tracking-tight">Document to email</h1>
+        <h1 class="m-0"><a href="./" aria-label="sPX_MMdotXToMail home" class="brand">s<span class="brand-accent">PX</span>_MMdotXToMail</a></h1>
+        <div class="flex items-center gap-4">
+          <label for="color-theme" class="theme-control">
+            <span>Theme</span>
+            <select id="color-theme" aria-label="Color theme" (change)="onAppThemeSelected($event)">
+              @for (option of appThemeOptions; track option.value) {
+                <option [value]="option.value" [selected]="option.value === appTheme()">{{ option.label }}</option>
+              }
+            </select>
+          </label>
         </div>
-        <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Proof of concept</span>
       </div>
 
       <div config class="space-y-5 p-5">
@@ -265,14 +286,42 @@ type ToolbarCommand =
                 The preview updates as you edit. Use "New sample data" to generate a fresh set of Faker values.
               }
             </div>
-            <div class="h-full rounded-lg bg-slate-100 p-4">
-              <div class="mx-auto flex h-full min-h-80 max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-sm">
-                <iframe #previewFrame title="Compiled email preview" class="w-full flex-1 border-0" [class.hidden]="!previewReady()" sandbox=""></iframe>
-                @if (!previewReady()) {
-                  <div class="flex min-h-80 items-center justify-center px-8 text-center text-sm text-slate-500">
-                    Your compiled email will appear here.
-                  </div>
-                }
+            <div class="flex h-full min-h-0 flex-col gap-3">
+              <div class="flex flex-wrap items-center gap-3">
+                <div role="group" aria-label="Email client preview" class="segmented">
+                  @for (option of previewClientOptions; track option.client) {
+                    <button
+                      type="button"
+                      [class.selected]="emailClient() === option.client"
+                      [attr.aria-pressed]="emailClient() === option.client"
+                      (click)="setEmailClient(option.client)"
+                    >{{ option.label }}</button>
+                  }
+                </div>
+                <span class="text-xs text-slate-500">
+                  {{ isDark() ? 'Dark mode as rendered by this client' : 'Switch the app to Dark to emulate client dark modes' }}
+                </span>
+              </div>
+              <div class="preview-stage min-h-0 flex-1 rounded-lg bg-slate-100 p-4">
+                <div
+                  class="mx-auto flex h-full min-h-80 max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-sm"
+                  [style.filter]="previewMode() === 'gmail' ? gmailFilter : null"
+                  [style.background-color]="previewMode() === 'apple' || previewMode() === 'outlook' ? '#121212' : null"
+                >
+                  <iframe
+                    #previewFrame
+                    title="Compiled email preview"
+                    class="w-full flex-1 border-0"
+                    [style.background-color]="previewMode() === 'gmail' ? gmailIframeBackground : null"
+                    [class.hidden]="!previewReady()"
+                    sandbox=""
+                  ></iframe>
+                  @if (!previewReady()) {
+                    <div class="flex min-h-80 items-center justify-center px-8 text-center text-sm text-slate-500">
+                      Your compiled email will appear here.
+                    </div>
+                  }
+                </div>
               </div>
             </div>
           </app-panel>
@@ -299,6 +348,34 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly activeTheme = computed(
     () => this.themes().find(({ id }) => id === this.selectedThemeId()) ?? DEFAULT_THEME,
   );
+  protected readonly appThemeOptions: { value: AppTheme; label: string }[] = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'system', label: 'System' },
+  ];
+  protected readonly appTheme = signal<AppTheme>('system');
+  private readonly systemDark = signal(false);
+  protected readonly colorScheme = computed<'light' | 'dark'>(() => {
+    const theme = this.appTheme();
+    return theme === 'system' ? (this.systemDark() ? 'dark' : 'light') : theme;
+  });
+  protected readonly emailClient = signal<PreviewClient>(DEFAULT_EMAIL_CLIENT);
+  // The app-level scheme and the selected client combine: only a real client emulates its dark mode.
+  protected readonly previewMode = computed<PreviewMode>(() => {
+    const client = this.emailClient();
+    return this.colorScheme() === 'dark' && client !== 'default' ? client : 'light';
+  });
+  protected readonly isDark = computed(() => this.colorScheme() === 'dark');
+  protected readonly gmailFilter = GMAIL_FILTER;
+  protected readonly gmailIframeBackground = GMAIL_IFRAME_BACKGROUND;
+  protected readonly previewClientOptions: { client: PreviewClient; label: string }[] = [
+    { client: 'default', label: 'Default' },
+    { client: 'gmail', label: 'Gmail' },
+    { client: 'apple', label: 'Apple Mail' },
+    { client: 'outlook', label: 'Outlook' },
+  ];
+
+  private compiledHtml = '';
 
   private editor?: Editor;
   private editorThemeStyle?: HTMLStyleElement;
@@ -313,9 +390,82 @@ export class App implements AfterViewInit, OnDestroy {
   }
 
   private readonly dotxStarter = inject(DotxStarterService);
+  private readonly systemQuery =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : undefined;
+  private readonly onSystemSchemeChange = (event: MediaQueryListEvent): void => {
+    this.systemDark.set(event.matches);
+    this.onPreviewModeChanged();
+  };
 
   constructor() {
     this.loadThemeLibrary();
+    this.systemDark.set(this.systemQuery?.matches ?? false);
+    this.systemQuery?.addEventListener('change', this.onSystemSchemeChange);
+    this.loadPreviewPreferences();
+  }
+
+  protected setEmailClient(client: PreviewClient): void {
+    this.emailClient.set(client);
+    this.onPreviewModeChanged();
+  }
+
+  protected onAppThemeSelected(event: Event): void {
+    const select = event.currentTarget;
+    if (!(select instanceof HTMLSelectElement)) return;
+    const option = this.appThemeOptions.find(({ value }) => value === select.value);
+    if (!option) return;
+
+    this.appTheme.set(option.value);
+    this.onPreviewModeChanged();
+  }
+
+  private onPreviewModeChanged(): void {
+    document.documentElement.classList.toggle('app-dark', this.isDark());
+    try {
+      localStorage.setItem(appThemeStorageKey, this.appTheme());
+      localStorage.setItem(previewStorageKey, JSON.stringify({ emailClient: this.emailClient() }));
+    } catch {
+      // Preferences are optional; the preview still works without storage.
+    }
+    this.renderPreview();
+  }
+
+  private loadPreviewPreferences(): void {
+    try {
+      const theme = this.appThemeOptions.find(({ value }) => value === localStorage.getItem(appThemeStorageKey));
+      if (theme) this.appTheme.set(theme.value);
+      const stored = JSON.parse(localStorage.getItem(previewStorageKey) ?? 'null') as {
+        emailClient?: unknown;
+      } | null;
+      const client = this.previewClientOptions.find(({ client: id }) => id === stored?.emailClient);
+      if (client) this.emailClient.set(client.client);
+    } catch {
+      // Ignore unreadable preferences and keep the defaults.
+    }
+    document.documentElement.classList.toggle('app-dark', this.isDark());
+  }
+
+  // Replacing srcdoc discards the previous document, so switching modes never accumulates iframes or listeners.
+  private renderPreview(): void {
+    if (!this.previewFrame || !this.compiledHtml) return;
+
+    this.previewFrame.nativeElement.srcdoc = applyPreviewMode(
+      this.compiledHtml,
+      this.previewMode(),
+      this.createPreviewPalette(this.activeTheme()),
+    );
+  }
+
+  private createPreviewPalette(theme: DocumentTheme): PreviewPalette {
+    const { emailBackground, contentBackground } = theme.colors;
+    const others = Object.values(theme.styles)
+      .map(({ backgroundColor }) => backgroundColor)
+      .filter((color) => color !== 'transparent' && color !== emailBackground && color !== contentBackground);
+    return {
+      pageBackground: emailBackground,
+      contentBackground,
+      otherBackgrounds: [...new Set(others)],
+    };
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -362,7 +512,8 @@ export class App implements AfterViewInit, OnDestroy {
 
   async ngOnDestroy(): Promise<void> {
     this.observer?.disconnect();
-    clearTimeout(this.previewTimer);
+    this.systemQuery?.removeEventListener('change', this.onSystemSchemeChange);
+    clearTimeout(this.previewTimer);(this.previewTimer);
     await this.editor?.destroy();
     this.editorThemeStyle?.remove();
   }
@@ -677,11 +828,10 @@ export class App implements AfterViewInit, OnDestroy {
         throw new Error(result.errors.map(({ message }) => message).join('\n'));
       }
 
+      this.compiledHtml = result.html;
       this.mergeData.set(mergeData);
       this.previewReady.set(true);
-      if (this.previewFrame) {
-        this.previewFrame.nativeElement.srcdoc = result.html;
-      }
+      this.renderPreview();
     } catch (error) {
       this.showError('The email preview could not be built.', error);
     } finally {
