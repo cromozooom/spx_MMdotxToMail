@@ -1,3 +1,4 @@
+import { ensureAccessibleDarkColor } from './dark-colors';
 import { DEFAULT_EMAIL_CLIENT, PreviewPalette, applyPreviewMode } from './email-preview-mode';
 
 const palette: PreviewPalette = {
@@ -30,6 +31,25 @@ describe('applyPreviewMode', () => {
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     expect(css).toContain('body.dark');
     expect(css).not.toContain('filter');
+  });
+
+  it('computes accessible dark counterparts for inline text colours in Apple Mail', () => {
+    const output = applyPreviewMode(html, 'apple', palette);
+    const doc = new DOMParser().parseFromString(output, 'text/html');
+    const index = doc.querySelector('p')?.getAttribute('data-dark-text');
+    const css = doc.head.querySelector('style')?.textContent ?? '';
+
+    expect(index).not.toBeNull();
+    const computed = new RegExp(`body\\.dark \\[data-dark-text="${index}"\\]\\{color:(#[0-9a-f]{6}) !important`).exec(css)?.[1];
+    expect(computed).toBeDefined();
+    expect(computed).not.toBe('#1e293b');
+    expect(ensureAccessibleDarkColor(computed ?? '', '#2a2a2a')).toBe(computed);
+  });
+
+  it('keeps colours that already contrast and rejects invalid ones', () => {
+    expect(ensureAccessibleDarkColor('#ffffff')).toBe('#ffffff');
+    expect(ensureAccessibleDarkColor('not-a-color')).toBeUndefined();
+    expect(ensureAccessibleDarkColor('#0000ff')).not.toBe('#0000ff');
   });
 
   it('tags elements and injects Outlook vendor overrides without filters', () => {
