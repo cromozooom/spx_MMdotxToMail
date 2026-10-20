@@ -107,24 +107,20 @@ type ToolbarCommand =
                 <option [value]="theme.id" [selected]="theme.id === selectedThemeId()">{{ theme.name }}</option>
               }
             </select>
-            <button type="button" class="format-button" (click)="downloadTheme()">Download JSON</button>
-            <button type="button" class="format-button" (click)="downloadDotx()">Download .dotx</button>
-            <label class="format-button cursor-pointer">
-              Upload JSON
-              <input
-                #themeFileInput
-                class="sr-only"
-                type="file"
-                accept=".json,application/json"
-                (change)="onThemeFileSelected($event)"
-              >
-            </label>
-            <p class="text-xs leading-5 text-slate-500">
-              <strong>Download .dotx</strong> builds a Word template from the active theme. To get one for your own
-              theme, first <strong>Upload JSON</strong> (it becomes the active theme), then download the .dotx.
-              <strong>Download JSON</strong> saves the active theme so you can edit, share or re-upload it.
-              The default theme is also available as a sample in the repo's <code>samples/</code> folder.
-            </p>
+            <div role="group" aria-label="Theme JSON" class="btn-group w-full">
+              <button id="tour-download-json" type="button" class="format-button flex-1" (click)="downloadTheme()">Download JSON</button>
+              <label id="tour-upload-json" class="format-button flex-1 cursor-pointer text-center">
+                Upload JSON
+                <input
+                  #themeFileInput
+                  class="sr-only"
+                  type="file"
+                  accept=".json,application/json"
+                  (change)="onThemeFileSelected($event)"
+                >
+              </label>
+            </div>
+            <button id="tour-download-dotx" type="button" class="format-button" (click)="downloadDotx()">Download .dotx</button>
           </div>
         </section>
 
@@ -644,17 +640,18 @@ export class App implements AfterViewInit, OnDestroy {
 
   private async importTheme(file: File): Promise<void> {
     try {
-      const theme = parseDocumentTheme(JSON.parse(await file.text()));
-      const existingIndex = this.themes().findIndex(({ id }) => id === theme.id);
+      const parsed = parseDocumentTheme(JSON.parse(await file.text()));
       const nextThemes = [...this.themes()];
+      if (nextThemes.length >= 50) throw new Error('The theme library is limited to 50 themes.');
 
-      if (existingIndex === -1) {
-        if (nextThemes.length >= 50) throw new Error('The theme library is limited to 50 themes.');
-        nextThemes.push(theme);
-      } else {
-        nextThemes[existingIndex] = theme;
+      // Uploads always add a new theme; a clashing id or name gets a numeric suffix instead of overwriting.
+      const ids = new Set(nextThemes.map(({ id }) => id));
+      const names = new Set(nextThemes.map(({ name }) => name));
+      let theme = parsed;
+      for (let copy = 2; ids.has(theme.id) || names.has(theme.name); copy++) {
+        theme = { ...parsed, id: `${parsed.id}-${copy}`, name: `${parsed.name.slice(0, 50)} (${copy})` };
       }
-
+      nextThemes.push(theme);
       this.themes.set(nextThemes);
       this.selectedThemeId.set(theme.id);
       this.persistThemeLibrary();

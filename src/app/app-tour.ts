@@ -5,11 +5,36 @@ export const TOUR_STORAGE_KEY = 'dotx-mailmerge.tour-done.v1';
 
 const TOUR_STEPS: DriveStep[] = [
   {
-    element: '#tour-config',
+    element: '#theme-select',
     popover: {
-      title: 'Theme library',
+      title: 'Theme · 1. Select a theme',
       description:
-        'A theme controls fonts, sizes, colours and quote/list styles for both the editor and the email. 1) Pick the active theme, or Upload JSON to load your own (it is added to the list and saved in this browser). 2) Download .dotx to get a Word template whose styles match that theme, so documents written in Word import with the right look. 3) Download JSON to share or back up a theme. Tip: upload your JSON first, then download the .dotx for it.',
+        'A theme controls fonts, sizes, colours and quote/list styles for both the editor and the email. Pick the active theme here, including any you uploaded.',
+      side: 'right',
+    },
+  },
+  {
+    element: '#tour-download-json',
+    popover: {
+      title: 'Theme · 2. Download JSON',
+      description: 'Save the active theme as a template, then edit its fonts, sizes and colours in any text editor.',
+      side: 'right',
+    },
+  },
+  {
+    element: '#tour-upload-json',
+    popover: {
+      title: 'Theme · 3. Upload JSON',
+      description: 'Upload the edited file in the same format. It is added to the list as a new theme and saved in this browser.',
+      side: 'right',
+    },
+  },
+  {
+    element: '#tour-download-dotx',
+    popover: {
+      title: 'Theme · 4. Download .dotx',
+      description:
+        'With your theme selected, export a Word template whose styles match it. Send it to your client so their documents import with the right look.',
       side: 'right',
     },
   },
