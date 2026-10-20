@@ -1,3 +1,5 @@
+import { ensureAccessibleDarkColor } from './dark-colors';
+
 export const PREVIEW_MODES = ['light', 'gmail', 'apple', 'outlook'] as const;
 export type PreviewMode = (typeof PREVIEW_MODES)[number];
 export type EmailClient = Exclude<PreviewMode, 'light'>;
@@ -64,6 +66,23 @@ function applyAppleMail(doc: Document, palette: PreviewPalette): void {
   colorScheme.content = 'light dark';
   doc.head.append(colorScheme);
 
+  // Every distinct inline text colour gets a computed accessible counterpart. Elements are tagged with an index
+  // instead of matching on the inline style, because `color:#x` is also a substring of `background-color:#x`.
+  const textRules = new Map<string, number>();
+  const counterparts: string[] = [];
+  for (const element of Array.from(doc.querySelectorAll<HTMLElement>('[style]'))) {
+    const declared = COLOR_DECLARATION.exec(element.getAttribute('style') ?? '')?.[1].trim();
+    if (!declared || TRANSPARENT.test(declared)) continue;
+    const key = declared.toLowerCase();
+    if (!textRules.has(key)) {
+      // The lightest dark surface is the worst case for contrast, so passing there passes everywhere.
+      const dark = ensureAccessibleDarkColor(declared, APPLE.other);
+      if (!dark) continue;
+      textRules.set(key, counterparts.push(dark) - 1);
+    }
+    element.setAttribute('data-dark-text', String(textRules.get(key)));
+  }
+
   // The same rules are emitted for the real media query and for `body.dark`, which the preview toggles
   // because an iframe cannot be forced into prefers-color-scheme: dark.
   const rules = (scope: 'body' | 'body.dark'): string =>
@@ -75,6 +94,7 @@ function applyAppleMail(doc: Document, palette: PreviewPalette): void {
         (color) => `${backgroundSelector(scope, color)}{background-color:${APPLE.other} !important}`,
       ),
       `${['p', 'li', 'td', 'span', 'strong', 'em', 'b', 'i', 'blockquote', 'cite'].map((tag) => `${scope} ${tag}`).join(',')}{color:${APPLE.text} !important}`,
+      ...counterparts.map((color, index) => `${scope} [data-dark-text="${index}"]{color:${color} !important}`),
     ].join('\n');
 
   injectStyle(doc, `@media (prefers-color-scheme: dark){\n${rules('body')}\n}\n${rules('body.dark')}`);
