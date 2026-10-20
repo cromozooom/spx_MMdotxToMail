@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { isTourDone, startTour } from './app-tour';
 import { DotxStarterService } from './dotx-starter.service';
 import {
   DEFAULT_EMAIL_CLIENT,
@@ -87,10 +88,11 @@ type ToolbarCommand =
               }
             </select>
           </label>
+          <button id="tour-help" type="button" class="format-button" (click)="startTour()">Help</button>
         </div>
       </div>
 
-      <div config class="space-y-5 p-5">
+      <div config id="tour-config" class="space-y-5 p-5">
         <section class="space-y-3">
           <h2 class="text-base font-semibold">Theme</h2>
           <div class="flex flex-col gap-2">
@@ -135,7 +137,7 @@ type ToolbarCommand =
       </div>
 
       <app-split-pane main handleLabel="Resize editor and preview" [minStart]="360" [minEnd]="360">
-          <app-panel #editorPanel paneStart badge="01" heading="Import and edit">
+          <app-panel #editorPanel id="tour-editor" paneStart badge="01" heading="Import and edit">
               <label panelActions class="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                 Choose .docx
                 <input class="sr-only" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" (change)="onFileSelected($event)">
@@ -267,7 +269,7 @@ type ToolbarCommand =
             </div>
           </app-panel>
 
-          <app-panel #previewPanel paneEnd badge="02" heading="Email preview">
+          <app-panel #previewPanel id="tour-preview" paneEnd badge="02" heading="Email preview">
             <div panelActions class="flex items-center gap-2">
               @if (previewReady()) {
                 <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Compiled</span>
@@ -528,8 +530,13 @@ export class App implements AfterViewInit, OnDestroy {
     };
   }
 
+  protected startTour(): void {
+    startTour();
+  }
+
   async ngAfterViewInit(): Promise<void> {
     this.setUpScrollSync();
+    if (!isTourDone()) setTimeout(() => startTour(), 600);
     try {
       const [{ Editor, defaultValueCtx, rootCtx }, commonmarkModule, { gfm }, { nord }] = await Promise.all([
         import('@milkdown/core'),
