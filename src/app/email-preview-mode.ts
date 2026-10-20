@@ -74,7 +74,7 @@ function applyAppleMail(doc: Document, palette: PreviewPalette): void {
       ...palette.otherBackgrounds.map(
         (color) => `${backgroundSelector(scope, color)}{background-color:${APPLE.other} !important}`,
       ),
-      `${['p', 'li', 'td', 'span', 'blockquote', 'cite'].map((tag) => `${scope} ${tag}`).join(',')}{color:${APPLE.text} !important}`,
+      `${['p', 'li', 'td', 'span', 'strong', 'em', 'b', 'i', 'blockquote', 'cite'].map((tag) => `${scope} ${tag}`).join(',')}{color:${APPLE.text} !important}`,
     ].join('\n');
 
   injectStyle(doc, `@media (prefers-color-scheme: dark){\n${rules('body')}\n}\n${rules('body.dark')}`);

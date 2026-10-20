@@ -48,3 +48,87 @@ body {
   color: #3730a3;
   font-weight: 600;
 }
+
+/* App-level dark theme: remaps the Tailwind slate/white surfaces used by the app chrome. */
+.app-dark {
+  color-scheme: dark;
+}
+
+.app-dark body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.app-dark .bg-white,
+.app-dark .bg-slate-50 {
+  background-color: #1e293b;
+}
+
+.app-dark .bg-slate-100,
+.app-dark .bg-slate-200 {
+  background-color: #0f172a;
+}
+
+.app-dark .bg-indigo-50 {
+  background-color: #312e81;
+}
+
+.app-dark .bg-emerald-50 {
+  background-color: #064e3b;
+}
+
+.app-dark .bg-rose-50 {
+  background-color: #4c0519;
+}
+
+.app-dark .border-slate-100,
+.app-dark .border-slate-200,
+.app-dark .border-slate-300 {
+  border-color: #334155;
+}
+
+.app-dark .text-slate-900,
+.app-dark .text-slate-800,
+.app-dark .text-slate-700 {
+  color: #e2e8f0;
+}
+
+.app-dark .text-slate-600,
+.app-dark .text-slate-500 {
+  color: #94a3b8;
+}
+
+.app-dark .text-indigo-600,
+.app-dark .text-indigo-700 {
+  color: #a5b4fc;
+}
+
+.app-dark .text-emerald-700 {
+  color: #6ee7b7;
+}
+
+.app-dark .text-rose-800 {
+  color: #fecdd3;
+}
+
+.app-dark .format-button {
+  border-color: #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.app-dark .format-button:hover:not(:disabled) {
+  background: #334155;
+}
+
+.app-dark .format-button-active,
+.app-dark .format-button-active:hover:not(:disabled) {
+  border-color: #818cf8;
+  background: #3730a3;
+  color: #e0e7ff;
+}
+
+.app-dark select,
+.app-dark input {
+  color-scheme: dark;
+}

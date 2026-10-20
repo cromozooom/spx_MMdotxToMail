@@ -2,15 +2,15 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, i
 import { DotxStarterService } from './dotx-starter.service';
 import {
   DEFAULT_EMAIL_CLIENT,
-  EMAIL_CLIENTS,
   EmailClient,
   GMAIL_FILTER,
   GMAIL_IFRAME_BACKGROUND,
   PreviewMode,
   PreviewPalette,
   applyPreviewMode,
-  isDarkMode,
 } from './email-preview-mode';
+
+type PreviewClient = 'default' | EmailClient;
 import { AppShellComponent } from './layout/app-shell.component';
 import { PanelComponent } from './layout/panel.component';
 import { SplitPaneComponent } from './layout/split-pane.component';
@@ -112,9 +112,9 @@ type ToolbarCommand =
         </section>
 
         <section class="space-y-3">
-          <h2 class="text-base font-semibold">Preview</h2>
+          <h2 class="text-base font-semibold">Appearance</h2>
           <div class="flex flex-col gap-2">
-            <span id="color-scheme-label" class="text-sm font-medium text-slate-600">Color scheme</span>
+            <span id="color-scheme-label" class="text-sm font-medium text-slate-600">App color scheme</span>
             <div role="group" aria-labelledby="color-scheme-label" class="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -131,17 +131,6 @@ type ToolbarCommand =
                 (click)="setColorScheme('dark')"
               >Dark</button>
             </div>
-            <label for="email-client-select" class="text-sm font-medium text-slate-600">Email client (dark mode)</label>
-            <select
-              id="email-client-select"
-              aria-label="Email client"
-              class="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
-              (change)="onEmailClientSelected($event)"
-            >
-              @for (client of emailClients; track client.id) {
-                <option [value]="client.id" [selected]="client.id === emailClient()">{{ client.label }}</option>
-              }
-            </select>
           </div>
         </section>
 
@@ -312,18 +301,21 @@ type ToolbarCommand =
               }
             </div>
             <div class="flex h-full min-h-0 flex-col gap-3">
-              <div role="toolbar" aria-label="Email preview mode" class="flex flex-wrap items-center gap-2">
-                @for (option of previewModeOptions; track option.mode) {
+              <div role="toolbar" aria-label="Email client preview" class="flex flex-wrap items-center gap-2">
+                @for (option of previewClientOptions; track option.client) {
                   <button
                     type="button"
                     class="format-button"
-                    [class.format-button-active]="previewMode() === option.mode"
-                    [attr.aria-pressed]="previewMode() === option.mode"
-                    (click)="setPreviewMode(option.mode)"
+                    [class.format-button-active]="emailClient() === option.client"
+                    [attr.aria-pressed]="emailClient() === option.client"
+                    (click)="setEmailClient(option.client)"
                   >{{ option.label }}</button>
                 }
+                <span class="text-xs text-slate-500">
+                  {{ isDark() ? 'Dark mode as rendered by this client' : 'Switch the app to Dark to emulate client dark modes' }}
+                </span>
               </div>
-              <div class="min-h-0 flex-1 rounded-lg p-4" [class.bg-slate-100]="!isDark()" [style.background-color]="isDark() ? '#0b0b0b' : null">
+              <div class="preview-stage min-h-0 flex-1 rounded-lg bg-slate-100 p-4">
                 <div
                   class="mx-auto flex h-full min-h-80 max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-sm"
                   [style.filter]="previewMode() === 'gmail' ? gmailFilter : null"
@@ -370,17 +362,20 @@ export class App implements AfterViewInit, OnDestroy {
     () => this.themes().find(({ id }) => id === this.selectedThemeId()) ?? DEFAULT_THEME,
   );
   protected readonly colorScheme = signal<'light' | 'dark'>('light');
-  protected readonly emailClient = signal<EmailClient>(DEFAULT_EMAIL_CLIENT);
-  protected readonly previewMode = computed<PreviewMode>(() =>
-    this.colorScheme() === 'dark' ? this.emailClient() : 'light',
-  );
-  protected readonly isDark = computed(() => isDarkMode(this.previewMode()));
-  protected readonly emailClients = EMAIL_CLIENTS;
+  protected readonly emailClient = signal<PreviewClient>(DEFAULT_EMAIL_CLIENT);
+  // The app-level scheme and the selected client combine: only a real client emulates its dark mode.
+  protected readonly previewMode = computed<PreviewMode>(() => {
+    const client = this.emailClient();
+    return this.colorScheme() === 'dark' && client !== 'default' ? client : 'light';
+  });
+  protected readonly isDark = computed(() => this.colorScheme() === 'dark');
   protected readonly gmailFilter = GMAIL_FILTER;
   protected readonly gmailIframeBackground = GMAIL_IFRAME_BACKGROUND;
-  protected readonly previewModeOptions: { mode: PreviewMode; label: string }[] = [
-    { mode: 'light', label: 'Light Mode' },
-    ...EMAIL_CLIENTS.map(({ id, label }) => ({ mode: id as PreviewMode, label })),
+  protected readonly previewClientOptions: { client: PreviewClient; label: string }[] = [
+    { client: 'default', label: 'Default' },
+    { client: 'gmail', label: 'Gmail' },
+    { client: 'apple', label: 'Apple Mail' },
+    { client: 'outlook', label: 'Outlook' },
   ];
 
   private compiledHtml = '';
@@ -404,13 +399,8 @@ export class App implements AfterViewInit, OnDestroy {
     this.loadPreviewPreferences();
   }
 
-  protected setPreviewMode(mode: PreviewMode): void {
-    if (mode === 'light') {
-      this.colorScheme.set('light');
-    } else {
-      this.colorScheme.set('dark');
-      this.emailClient.set(mode);
-    }
+  protected setEmailClient(client: PreviewClient): void {
+    this.emailClient.set(client);
     this.onPreviewModeChanged();
   }
 
@@ -419,17 +409,8 @@ export class App implements AfterViewInit, OnDestroy {
     this.onPreviewModeChanged();
   }
 
-  protected onEmailClientSelected(event: Event): void {
-    const select = event.currentTarget;
-    if (!(select instanceof HTMLSelectElement)) return;
-    const client = EMAIL_CLIENTS.find(({ id }) => id === select.value);
-    if (!client) return;
-
-    this.emailClient.set(client.id);
-    this.onPreviewModeChanged();
-  }
-
   private onPreviewModeChanged(): void {
+    document.documentElement.classList.toggle('app-dark', this.colorScheme() === 'dark');
     try {
       localStorage.setItem(
         previewStorageKey,
@@ -448,11 +429,12 @@ export class App implements AfterViewInit, OnDestroy {
         emailClient?: unknown;
       } | null;
       if (stored?.colorScheme === 'light' || stored?.colorScheme === 'dark') this.colorScheme.set(stored.colorScheme);
-      const client = EMAIL_CLIENTS.find(({ id }) => id === stored?.emailClient);
-      if (client) this.emailClient.set(client.id);
+      const client = this.previewClientOptions.find(({ client: id }) => id === stored?.emailClient);
+      if (client) this.emailClient.set(client.client);
     } catch {
       // Ignore unreadable preferences and keep the defaults.
     }
+    document.documentElement.classList.toggle('app-dark', this.colorScheme() === 'dark');
   }
 
   // Replacing srcdoc discards the previous document, so switching modes never accumulates iframes or listeners.
