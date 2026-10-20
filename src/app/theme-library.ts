@@ -34,7 +34,25 @@ export interface ThemeTextStyle {
   textDecoration: 'none' | 'underline' | 'line-through';
   marginTop: string;
   marginBottom: string;
+  marginLeft?: string;
+  marginRight?: string;
+  paddingTop?: string;
+  paddingRight?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  /** `none` or `<width>px <solid|dashed|dotted|double> <color>`, e.g. `4px solid #cbd5e1`. */
+  borderLeft?: string;
 }
+
+export const OPTIONAL_BOX_FIELDS = [
+  'marginLeft',
+  'marginRight',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'borderLeft',
+] as const;
 
 export interface ThemeColors {
   emailBackground: string;
@@ -70,7 +88,7 @@ const defaultStyles = Object.fromEntries(
 
 export const DEFAULT_THEME: DocumentTheme = {
   id: 'default',
-  name: 'Default',
+  name: 'Default (Major Second)',
   colors: {
     emailBackground: '#f1f5f9',
     contentBackground: '#ffffff',
@@ -80,7 +98,7 @@ export const DEFAULT_THEME: DocumentTheme = {
   styles: {
     ...defaultStyles,
     paragraph: { ...defaultTextStyle },
-    title: { ...defaultTextStyle, fontSize: '32px', fontWeight: '700', lineHeight: '1.2', marginTop: '0px' },
+    title: { ...defaultTextStyle, color: '#00835f', fontSize: '32.44px', fontWeight: '700', lineHeight: '1.2', marginTop: '0px' },
     subtitle: {
       ...defaultTextStyle,
       fontSize: '18px',
@@ -88,12 +106,12 @@ export const DEFAULT_THEME: DocumentTheme = {
       color: '#64748b',
       marginTop: '0px',
     },
-    heading1: { ...defaultTextStyle, fontSize: '32px', fontWeight: '700', lineHeight: '1.2' },
-    heading2: { ...defaultTextStyle, fontSize: '26px', fontWeight: '700', lineHeight: '1.25' },
-    heading3: { ...defaultTextStyle, fontSize: '22px', fontWeight: '700', lineHeight: '1.3' },
-    heading4: { ...defaultTextStyle, fontSize: '20px', fontWeight: '700', lineHeight: '1.35' },
-    heading5: { ...defaultTextStyle, fontSize: '18px', fontWeight: '700', lineHeight: '1.4' },
-    heading6: { ...defaultTextStyle, fontSize: '16px', fontWeight: '700', lineHeight: '1.4' },
+    heading1: { ...defaultTextStyle, color: '#00835f', fontSize: '28.83px', fontWeight: '700', lineHeight: '1.2' },
+    heading2: { ...defaultTextStyle, color: '#00835f', fontSize: '25.63px', fontWeight: '700', lineHeight: '1.25' },
+    heading3: { ...defaultTextStyle, color: '#00835f', fontSize: '22.78px', fontWeight: '700', lineHeight: '1.3' },
+    heading4: { ...defaultTextStyle, color: '#00835f', fontSize: '20.25px', fontWeight: '700', lineHeight: '1.35' },
+    heading5: { ...defaultTextStyle, color: '#00835f', fontSize: '18px', fontWeight: '700', lineHeight: '1.4' },
+    heading6: { ...defaultTextStyle, color: '#00835f', fontSize: '16px', fontWeight: '700', lineHeight: '1.4' },
     quote: {
       ...defaultTextStyle,
       fontStyle: 'italic',
@@ -101,6 +119,13 @@ export const DEFAULT_THEME: DocumentTheme = {
       backgroundColor: '#f8fafc',
       marginTop: '16px',
       marginBottom: '16px',
+      marginLeft: '0px',
+      marginRight: '0px',
+      paddingTop: '8px',
+      paddingRight: '16px',
+      paddingBottom: '8px',
+      paddingLeft: '16px',
+      borderLeft: '4px solid #cbd5e1',
     },
     intenseQuote: {
       ...defaultTextStyle,
@@ -110,6 +135,13 @@ export const DEFAULT_THEME: DocumentTheme = {
       backgroundColor: '#eef2ff',
       marginTop: '16px',
       marginBottom: '16px',
+      marginLeft: '0px',
+      marginRight: '0px',
+      paddingTop: '8px',
+      paddingRight: '16px',
+      paddingBottom: '8px',
+      paddingLeft: '16px',
+      borderLeft: '4px solid #6366f1',
     },
     list: { ...defaultTextStyle, marginTop: '8px', marginBottom: '8px' },
     strong: { ...defaultTextStyle, fontWeight: '700' },
@@ -124,7 +156,11 @@ export const DEFAULT_THEME: DocumentTheme = {
 
 export const DEFAULT_THEME_LIBRARY: DocumentTheme[] = [DEFAULT_THEME];
 
+// Bump when DEFAULT_THEME changes so saved copies in local storage are refreshed once.
+export const DEFAULT_THEME_REVISION = '3';
+
 const lengthPattern = /^-?\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/;
+const borderPattern = /^(?:none|\d+(?:\.\d+)?px (?:solid|dashed|dotted|double) (?:#[\da-fA-F]{3,8}|[a-zA-Z]+))$/;
 const safeCssValuePattern = /^[a-zA-Z0-9#.,%() _-]+$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -134,7 +170,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function safeCssValue(value: unknown, field: keyof ThemeTextStyle, fallback: string): string {
   if (typeof value !== 'string' || value.length > 120 || !safeCssValuePattern.test(value)) return fallback;
 
-  if (field === 'fontSize' || field === 'marginTop' || field === 'marginBottom') {
+  if (field === 'borderLeft') return borderPattern.test(value) ? value : fallback;
+  if (
+    field === 'fontSize' ||
+    field === 'marginTop' ||
+    field === 'marginBottom' ||
+    field === 'marginLeft' ||
+    field === 'marginRight' ||
+    field === 'paddingTop' ||
+    field === 'paddingRight' ||
+    field === 'paddingBottom' ||
+    field === 'paddingLeft'
+  ) {
     return lengthPattern.test(value) ? value : fallback;
   }
   if (field === 'fontWeight') {
@@ -207,6 +254,14 @@ export function parseDocumentTheme(value: unknown): DocumentTheme {
       marginTop: safeCssValue(supplied['marginTop'], 'marginTop', defaults.marginTop),
       marginBottom: safeCssValue(supplied['marginBottom'], 'marginBottom', defaults.marginBottom),
     };
+    for (const field of OPTIONAL_BOX_FIELDS) {
+      const fallback = defaults[field];
+      const next =
+        supplied[field] === undefined
+          ? fallback
+          : safeCssValue(supplied[field], field, fallback ?? (field === 'borderLeft' ? 'none' : '0px'));
+      if (next !== undefined) parsed[field] = next;
+    }
     styles[styleName] = parsed;
   }
 

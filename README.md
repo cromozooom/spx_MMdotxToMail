@@ -28,13 +28,21 @@ The workspace enables npm's legacy peer-dependency resolution because npm 10.9 c
 6. `mjml-browser` compiles the content into responsive email HTML.
 7. The compiled HTML is rendered in a sandboxed preview iframe.
 
-The sample document is available immediately when the app starts. Click **Merge & preview** to generate a new set of sample data and compile the email.
+The sample document is available immediately and the email preview updates live as you edit. Click **New sample data** to regenerate the merge values.
 
 ## Theme library
 
 Use the **Theme** selector in the header to switch themes. **Download JSON** exports the selected theme; edit the JSON and use **Upload JSON** to add it to the local theme library or replace a theme with the same id. The library and selected theme are saved in this browser's local storage.
 
 Each theme has `colors` for the email/editor backgrounds and a `styles` object for paragraph, title, subtitle, heading levels 1–6, quotes, lists, and inline character styles. Every style accepts `fontFamily`, `fontSize`, `fontWeight`, `letterSpacing`, `lineHeight`, `color`, `backgroundColor`, `fontStyle`, `textDecoration`, `marginTop`, and `marginBottom`. Values are validated when imported; invalid individual style values use that style's defaults. Heading 7 uses the Heading 6 Markdown style. Markdown does not preserve all Word style distinctions: Title and Heading 1 both become H1, Subtitle and inline emphasis both use italics, and subtle/reference styles collapse to italic text.
+
+## Layout components
+
+Reusable layout pieces live in `src/app/layout/`:
+
+- `app-shell` – full-height page with `shellHeader`, a resizable `config` | `main` split and a `shellFooter` bar.
+- `app-split-pane` – two resizable panes (`paneStart`, `paneEnd`) with minimum widths; drag the handle, use the arrow keys, or double-click to reset.
+- `app-panel` – numbered pane with `panelActions`, `panelStatus` and `panelFooter` slots.
 
 ## Notes
 

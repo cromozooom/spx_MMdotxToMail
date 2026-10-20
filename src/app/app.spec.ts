@@ -22,7 +22,7 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Document to email');
     expect(compiled.textContent).toContain('Choose .docx');
-    expect(compiled.textContent).toContain('Merge & preview');
+    expect(compiled.textContent).toContain('New sample data');
     expect(compiled.querySelector('[role="toolbar"]')).toBeTruthy();
     expect(compiled.querySelector('[aria-label="Paragraph style"]')).toBeTruthy();
     expect(compiled.querySelector('[aria-label="Strong (bold)"]')).toBeTruthy();
@@ -102,6 +102,27 @@ describe('App', () => {
       },
     });
     expect(theme.styles.paragraph.fontSize).toBe(DEFAULT_THEME.styles.paragraph.fontSize);
+  });
+
+  it('should parse box properties on quotes and ignore unsafe borders', () => {
+    const theme = parseDocumentTheme({
+      ...DEFAULT_THEME,
+      styles: {
+        ...DEFAULT_THEME.styles,
+        quote: {
+          ...DEFAULT_THEME.styles.quote,
+          marginLeft: '24px',
+          paddingLeft: '20px',
+          borderLeft: '6px dashed #ff0000',
+        },
+        intenseQuote: { ...DEFAULT_THEME.styles.intenseQuote, borderLeft: 'url(x)', paddingLeft: 'calc(1px)' },
+      },
+    });
+
+    expect(theme.styles.quote).toMatchObject({ marginLeft: '24px', paddingLeft: '20px', borderLeft: '6px dashed #ff0000' });
+    expect(theme.styles.intenseQuote.borderLeft).toBe(DEFAULT_THEME.styles.intenseQuote.borderLeft);
+    expect(theme.styles.intenseQuote.paddingLeft).toBe(DEFAULT_THEME.styles.intenseQuote.paddingLeft);
+    expect(theme.styles.paragraph.borderLeft).toBeUndefined();
   });
 
   it('should serialize and validate a theme library with its selected theme', () => {

@@ -1,8 +1,12 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { DotxStarterService } from './dotx-starter.service';
+import { AppShellComponent } from './layout/app-shell.component';
+import { PanelComponent } from './layout/panel.component';
+import { SplitPaneComponent } from './layout/split-pane.component';
 import type { Editor } from '@milkdown/core';
 import {
   DEFAULT_THEME,
-  DEFAULT_THEME_LIBRARY,
+  DEFAULT_THEME_REVISION,  DEFAULT_THEME_LIBRARY,
   DocumentTheme,
   ThemeStyleName,
   parseDocumentTheme,
@@ -15,12 +19,33 @@ const initialMarkdown = `# Hello {fullName}
 
 We're excited to welcome you to **{company}**.
 
+## Heading 2
+
+### Heading 3
+
+#### Heading 4
+
+##### Heading 5
+
+###### Heading 6
+
+A normal paragraph with **strong**, *emphasis* and ***intense emphasis*** text.
+
+> A quote block.
+
+- First bullet
+- Second bullet
+
+1. First step
+2. Second step
+
 Your contact email is {email}.
 
 Best,
 The team`;
 
 const themeStorageKey = 'dotx-mailmerge.theme-library.v1';
+const defaultRevisionKey = 'dotx-mailmerge.default-theme-revision';
 
 type ToolbarCommand =
   | 'heading'
@@ -33,17 +58,22 @@ type ToolbarCommand =
 
 @Component({
   selector: 'app-root',
-  imports: [],
+  imports: [AppShellComponent, PanelComponent, SplitPaneComponent],
   template: `
-    <main class="min-h-screen bg-slate-50 text-slate-900">
-      <header class="border-b border-slate-200 bg-white">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">Dotx Mailmerge</p>
-            <h1 class="mt-1 text-2xl font-bold tracking-tight">Document to email</h1>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-2">
-            <label for="theme-select" class="text-sm font-medium text-slate-600">Theme</label>
+    <app-shell>
+      <div shellHeader class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">Dotx Mailmerge</p>
+          <h1 class="mt-1 text-xl font-bold tracking-tight">Document to email</h1>
+        </div>
+        <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Proof of concept</span>
+      </div>
+
+      <div config class="space-y-5 p-5">
+        <section class="space-y-3">
+          <h2 class="text-base font-semibold">Theme</h2>
+          <div class="flex flex-col gap-2">
+            <label for="theme-select" class="text-sm font-medium text-slate-600">Active theme</label>
             <select
               id="theme-select"
               aria-label="Active theme"
@@ -55,6 +85,7 @@ type ToolbarCommand =
               }
             </select>
             <button type="button" class="format-button" (click)="downloadTheme()">Download JSON</button>
+            <button type="button" class="format-button" (click)="downloadDotx()">Download .dotx</button>
             <label class="format-button cursor-pointer">
               Upload JSON
               <input
@@ -65,45 +96,37 @@ type ToolbarCommand =
                 (change)="onThemeFileSelected($event)"
               >
             </label>
-            <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Proof of concept</span>
           </div>
-        </div>
-      </header>
+        </section>
 
-      <div class="mx-auto max-w-7xl px-6 py-8">
-        <p class="mb-6 max-w-3xl text-sm leading-6 text-slate-600">
-          Upload a Word document, refine its contents, add sample merge data, and preview an email-ready HTML version.
+        <p class="text-sm leading-6 text-slate-600">
+          Upload a Word document, refine its contents, and preview an email-ready HTML version.
           Use placeholders such as <code class="rounded bg-slate-200 px-1.5 py-0.5 text-slate-800">&#123;fullName&#125;</code>,
           <code class="rounded bg-slate-200 px-1.5 py-0.5 text-slate-800">&#123;email&#125;</code>, and
           <code class="rounded bg-slate-200 px-1.5 py-0.5 text-slate-800">&#123;company&#125;</code>.
         </p>
 
         @if (errorMessage()) {
-          <div role="alert" class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <div role="alert" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             {{ errorMessage() }}
           </div>
         }
+      </div>
 
-        <section class="grid gap-5 lg:grid-cols-2">
-          <article class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 1</p>
-                <h2 class="mt-1 text-lg font-semibold">Import and edit</h2>
-              </div>
-              <label class="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+      <app-split-pane main handleLabel="Resize editor and preview" [minStart]="360" [minEnd]="360">
+          <app-panel paneStart badge="01" heading="Import and edit">
+              <label panelActions class="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                 Choose .docx
                 <input class="sr-only" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" (change)="onFileSelected($event)">
               </label>
-            </div>
-            <div class="border-b border-slate-100 px-5 py-3 text-xs text-slate-500">
+            <div panelStatus>
               @if (sourceFile()) {
                 Imported from <span class="font-medium text-slate-700">{{ sourceFile() }}</span>
               } @else {
                 Start with the sample, or choose a .docx file to import its text.
               }
             </div>
-            <div class="p-5">
+            <div>
               <div
                 role="toolbar"
                 aria-label="Text formatting"
@@ -215,42 +238,36 @@ type ToolbarCommand =
                 >Intense ref.</button>
               </div>
               <div #editorRoot class="milkdown-editor min-h-80 rounded-lg border border-slate-200 px-4 py-3"></div>
-              <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap gap-2 text-xs text-slate-600">
-                  <span class="rounded bg-slate-100 px-2 py-1">Markdown editor</span>
-                  <span class="rounded bg-slate-100 px-2 py-1">GFM</span>
-                </div>
-                <button type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="isCompiling()" (click)="buildEmail()">
-                  {{ isCompiling() ? 'Building preview…' : 'Merge & preview' }}
-                </button>
-              </div>
             </div>
-          </article>
+            <div panelFooter class="flex gap-2">
+              <span class="rounded bg-slate-100 px-2 py-0.5">Markdown editor</span>
+              <span class="rounded bg-slate-100 px-2 py-0.5">GFM</span>
+            </div>
+          </app-panel>
 
-          <article class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 2</p>
-                <h2 class="mt-1 text-lg font-semibold">Email preview</h2>
-              </div>
+          <app-panel paneEnd badge="02" heading="Email preview">
+            <div panelActions class="flex items-center gap-2">
               @if (previewReady()) {
                 <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Compiled</span>
               } @else {
                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Waiting for content</span>
               }
+              <button type="button" class="format-button" [disabled]="isCompiling()" (click)="buildEmail()">
+                {{ isCompiling() ? 'Building…' : 'New sample data' }}
+              </button>
             </div>
-            <div class="border-b border-slate-100 px-5 py-3 text-xs text-slate-500">
+            <div panelStatus>
               @if (mergeData(); as data) {
                 Sample merge data:
                 <span class="font-medium text-slate-700">{{ data['fullName'] }}</span>
                 · {{ data['email'] }} · {{ data['company'] }}
               } @else {
-                A fresh set of Faker values is generated each time you build the preview.
+                The preview updates as you edit. Use "New sample data" to generate a fresh set of Faker values.
               }
             </div>
-            <div class="bg-slate-100 p-5">
-              <div class="mx-auto min-h-80 max-w-2xl overflow-hidden rounded-lg bg-white shadow-sm">
-                <iframe #previewFrame title="Compiled email preview" class="min-h-80 w-full border-0" [class.hidden]="!previewReady()" sandbox=""></iframe>
+            <div class="h-full rounded-lg bg-slate-100 p-4">
+              <div class="mx-auto flex h-full min-h-80 max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-sm">
+                <iframe #previewFrame title="Compiled email preview" class="w-full flex-1 border-0" [class.hidden]="!previewReady()" sandbox=""></iframe>
                 @if (!previewReady()) {
                   <div class="flex min-h-80 items-center justify-center px-8 text-center text-sm text-slate-500">
                     Your compiled email will appear here.
@@ -258,14 +275,13 @@ type ToolbarCommand =
                 }
               </div>
             </div>
-          </article>
-        </section>
+          </app-panel>
+      </app-split-pane>
 
-        <footer class="mt-6 text-xs leading-5 text-slate-500">
-          Documents are processed in your browser. This POC supports text and basic formatting; verify the final HTML in your target email clients before sending.
-        </footer>
-      </div>
-    </main>
+      <span shellFooter>
+        Documents are processed in your browser. This POC supports text and basic formatting; verify the final HTML in your target email clients before sending.
+      </span>
+    </app-shell>
   `,
 })
 export class App implements AfterViewInit, OnDestroy {
@@ -288,6 +304,15 @@ export class App implements AfterViewInit, OnDestroy {
   private editorThemeStyle?: HTMLStyleElement;
   private commandRunners?: Record<ToolbarCommand, (payload?: number) => boolean>;
   private pendingMarkdown = initialMarkdown;
+  private observer?: MutationObserver;
+  private previewTimer?: ReturnType<typeof setTimeout>;
+
+  private schedulePreview(): void {
+    clearTimeout(this.previewTimer);
+    this.previewTimer = setTimeout(() => void this.buildEmail(true), 300);
+  }
+
+  private readonly dotxStarter = inject(DotxStarterService);
 
   constructor() {
     this.loadThemeLibrary();
@@ -322,12 +347,22 @@ export class App implements AfterViewInit, OnDestroy {
         .create();
       this.applyThemeToEditor();
       this.editorReady.set(true);
+      this.observer = new MutationObserver(() => this.schedulePreview());
+      this.observer.observe(this.editorRoot.nativeElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+      });
+      await this.buildEmail(true);
     } catch (error) {
       this.showError('The Markdown editor could not be initialized.', error);
     }
   }
 
   async ngOnDestroy(): Promise<void> {
+    this.observer?.disconnect();
+    clearTimeout(this.previewTimer);
     await this.editor?.destroy();
     this.editorThemeStyle?.remove();
   }
@@ -359,6 +394,14 @@ export class App implements AfterViewInit, OnDestroy {
     link.download = `${this.activeTheme().id}.theme.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  protected async downloadDotx(): Promise<void> {
+    try {
+      await this.dotxStarter.downloadStarterDotx(this.activeTheme());
+    } catch (error) {
+      this.showError('The Word template could not be generated.', error);
+    }
   }
 
   protected onThemeFileSelected(event: Event): void {
@@ -400,13 +443,22 @@ export class App implements AfterViewInit, OnDestroy {
     try {
       const stored = localStorage.getItem(themeStorageKey);
       if (stored === null) {
+        localStorage.setItem(defaultRevisionKey, DEFAULT_THEME_REVISION);
         this.persistThemeLibrary();
         return;
       }
 
       const library = parseThemeLibrary(JSON.parse(stored));
-      this.themes.set(library.themes);
+      const themes = library.themes;
+      if (localStorage.getItem(defaultRevisionKey) !== DEFAULT_THEME_REVISION) {
+        const index = themes.findIndex(({ id }) => id === DEFAULT_THEME.id);
+        if (index >= 0) themes[index] = DEFAULT_THEME;
+        else themes.unshift(DEFAULT_THEME);
+        localStorage.setItem(defaultRevisionKey, DEFAULT_THEME_REVISION);
+      }
+      this.themes.set(themes);
       this.selectedThemeId.set(library.selectedThemeId);
+      this.persistThemeLibrary();
     } catch (error) {
       this.showError('The saved theme library could not be loaded. The default theme is active.', error);
     }
@@ -649,8 +701,6 @@ export class App implements AfterViewInit, OnDestroy {
       }
 
       this.sourceFile.set(file.name);
-      this.previewReady.set(false);
-      this.mergeData.set(null);
     } catch (error) {
       this.showError('The selected Word document could not be imported.', error);
     }
