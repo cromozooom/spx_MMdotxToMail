@@ -36,6 +36,14 @@ Use the **Theme** selector in the header to switch themes. **Download JSON** exp
 
 Each theme has `colors` for the email/editor backgrounds and a `styles` object for paragraph, title, subtitle, heading levels 1–6, quotes, lists, and inline character styles. Every style accepts `fontFamily`, `fontSize`, `fontWeight`, `letterSpacing`, `lineHeight`, `color`, `backgroundColor`, `fontStyle`, `textDecoration`, `marginTop`, and `marginBottom`. Values are validated when imported; invalid individual style values use that style's defaults. Heading 7 uses the Heading 6 Markdown style. Markdown does not preserve all Word style distinctions: Title and Heading 1 both become H1, Subtitle and inline emphasis both use italics, and subtle/reference styles collapse to italic text.
 
+## Dark-mode preview
+
+The config panel has a Light/Dark switch and an email-client selector (Outlook by default); the preview toolbar offers the same four modes. The choice is saved in localStorage. The preview HTML is transformed before it is set as the iframe `srcdoc`; the real MJML output is unchanged.
+
+- **Gmail (Inverted)**: `filter: invert(0.92) hue-rotate(180deg)` on the iframe container, iframe background `#121212`.
+- **Apple Mail (Media Query)**: injects `@media (prefers-color-scheme: dark)` rules and a `.dark` body class. No filters.
+- **Outlook (Vendor Overrides)**: adds `data-ogsb`/`data-ogsc` attributes and `[data-ogsb]`/`[data-ogsc]` overrides (`#2d2d2d`, `#1e1e1e`, white text). No filters.
+
 ## Layout components
 
 Reusable layout pieces live in `src/app/layout/`:
