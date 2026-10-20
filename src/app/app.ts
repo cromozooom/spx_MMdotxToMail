@@ -174,7 +174,7 @@ type ToolbarCommand =
                   <option value="quote">Quote</option>
                   <option value="intense-quote">Intense Quote</option>
                 </select>
-                <span aria-hidden="true" class="h-6 border-l border-slate-300"></span>
+                <div role="group" aria-label="Lists" class="btn-group">
                 <button
                   type="button"
                   aria-label="Bulleted list"
@@ -183,7 +183,7 @@ type ToolbarCommand =
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
                   (click)="applyListStyle('bulletList')"
-                >&#8226; List</button>
+                >ul</button>
                 <button
                   type="button"
                   aria-label="Numbered list"
@@ -192,8 +192,9 @@ type ToolbarCommand =
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
                   (click)="applyListStyle('orderedList')"
-                >1. List</button>
-                <span aria-hidden="true" class="h-6 border-l border-slate-300"></span>
+                >ol</button>
+                </div>
+                <div role="group" aria-label="Character styles" class="btn-group">
                 <button
                   type="button"
                   aria-label="Strong (bold)"
@@ -257,6 +258,7 @@ type ToolbarCommand =
                   (mousedown)="$event.preventDefault()"
                   (click)="applyCharacterStyle('emphasis')"
                 >Intense ref.</button>
+                </div>
             </div>
             <div #editorRoot class="milkdown-editor min-h-80 rounded-lg border border-slate-200 px-4 py-3"></div>
             <div panelFooter class="flex gap-2">
