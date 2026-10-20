@@ -33,7 +33,7 @@ const KEYBOARD_STEP = 24;
           (keydown)="onKeydown($event)"
           (dblclick)="reset()"
         >
-          <span class="split-handle-grip absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded"></span>
+          <span class="split-handle-grip absolute left-1/2 top-1/2 -ml-[1.5px] h-8 w-[3px] -translate-y-1/2 rounded"></span>
         </div>
         <div class="min-h-0 min-w-0 overflow-auto"><ng-content select="[paneEnd]" /></div>
       </div>
