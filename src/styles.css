@@ -142,6 +142,52 @@ body {
   color: #e2e8f0;
 }
 
+/* Pane resize handles: own colours and edge lines so they look identical next to any neighbouring surface. */
+.split-handle {
+  box-sizing: border-box;
+  border-left: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  background: #e2e8f0;
+  transition: background-color 150ms ease;
+}
+
+.split-handle-grip {
+  background: #94a3b8;
+}
+
+.split-handle:hover,
+.split-handle:focus-visible,
+.split-handle-active {
+  background: #00e693;
+}
+
+.split-handle:hover .split-handle-grip,
+.split-handle:focus-visible .split-handle-grip,
+.split-handle-active .split-handle-grip {
+  background: #052e1f;
+}
+
+.app-dark .split-handle {
+  border-color: #475569;
+  background: #334155;
+}
+
+.app-dark .split-handle-grip {
+  background: #94a3b8;
+}
+
+.app-dark .split-handle:hover,
+.app-dark .split-handle:focus-visible,
+.app-dark .split-handle-active {
+  background: #00e693;
+}
+
+.app-dark .split-handle:hover .split-handle-grip,
+.app-dark .split-handle:focus-visible .split-handle-grip,
+.app-dark .split-handle-active .split-handle-grip {
+  background: #052e1f;
+}
+
 /* App-level dark theme: remaps the Tailwind slate/white surfaces used by the app chrome. */
 .app-dark {
   color-scheme: dark;

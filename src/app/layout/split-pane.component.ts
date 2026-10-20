@@ -24,8 +24,8 @@ const KEYBOARD_STEP = 24;
           aria-orientation="vertical"
           tabindex="0"
           [attr.aria-label]="handleLabel()"
-          class="group relative cursor-col-resize touch-none bg-slate-200 outline-none transition hover:bg-indigo-300 focus-visible:bg-indigo-400"
-          [class.bg-indigo-400]="dragging()"
+          class="split-handle group relative cursor-col-resize touch-none outline-none"
+          [class.split-handle-active]="dragging()"
           (pointerdown)="startDrag($event)"
           (pointermove)="drag($event)"
           (pointerup)="endDrag($event)"
@@ -33,7 +33,7 @@ const KEYBOARD_STEP = 24;
           (keydown)="onKeydown($event)"
           (dblclick)="reset()"
         >
-          <span class="absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-slate-400 group-hover:bg-white"></span>
+          <span class="split-handle-grip absolute left-1/2 top-1/2 h-8 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded"></span>
         </div>
         <div class="min-h-0 min-w-0 overflow-auto"><ng-content select="[paneEnd]" /></div>
       </div>
