@@ -74,11 +74,8 @@ type ToolbarCommand =
   template: `
     <app-shell>
       <div shellHeader class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">Dotx Mailmerge</p>
-          <h1 class="mt-1 text-xl font-bold tracking-tight">Document to email</h1>
-        </div>
-        <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Proof of concept</span>
+        <h1 class="m-0"><a href="./" aria-label="sPX_MMdotXToMail home" class="brand">s<span class="brand-accent">PX</span>_MMdotXToMail</a></h1>
+        <span class="brand-badge rounded-full px-3 py-1 text-xs font-semibold">Proof of concept</span>
       </div>
 
       <div config class="space-y-5 p-5">

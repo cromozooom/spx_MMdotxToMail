@@ -43,10 +43,37 @@ body {
 
 .format-button-active,
 .format-button-active:hover:not(:disabled) {
-  border-color: #4f46e5;
-  background: #eef2ff;
-  color: #3730a3;
+  border-color: #00e693;
+  background: #00e693;
+  color: #052e1f;
   font-weight: 600;
+}
+
+:root {
+  --brand: #00e693;
+}
+
+.brand {
+  color: inherit;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -1px;
+  text-decoration: none;
+}
+
+.brand-accent {
+  color: var(--brand);
+}
+
+.brand-badge {
+  background: #e6fff5;
+  color: #006b47;
+}
+
+.app-dark .brand-badge {
+  background: #064e3b;
+  color: var(--brand);
 }
 
 /* App-level dark theme: remaps the Tailwind slate/white surfaces used by the app chrome. */
@@ -123,9 +150,9 @@ body {
 
 .app-dark .format-button-active,
 .app-dark .format-button-active:hover:not(:disabled) {
-  border-color: #818cf8;
-  background: #3730a3;
-  color: #e0e7ff;
+  border-color: #00e693;
+  background: #00e693;
+  color: #052e1f;
 }
 
 .app-dark select,
