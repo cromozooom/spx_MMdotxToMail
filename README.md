@@ -50,8 +50,7 @@ Reusable layout pieces live in `src/app/layout/`:
 
 - `app-shell` – full-height page with `shellHeader`, a resizable `config` | `main` split and a `shellFooter` bar.
 - `app-split-pane` – two resizable panes (`paneStart`, `paneEnd`) with minimum widths; drag the handle, use the arrow keys, or double-click to reset.
-- `app-panel` – numbered pane with `panelActions`, `panelStatus` and `panelFooter` slots.
-
+- `app-panel` – numbered header, fixed-height `panelStatus` and `panelToolbar` rows (so side-by-side panes line up), a scrolling body exposed as `bodyRef`, and an optional footer.
 ## Notes
 
 - File processing and preview generation happen locally in the browser.

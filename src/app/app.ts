@@ -135,7 +135,7 @@ type ToolbarCommand =
       </div>
 
       <app-split-pane main handleLabel="Resize editor and preview" [minStart]="360" [minEnd]="360">
-          <app-panel paneStart badge="01" heading="Import and edit">
+          <app-panel #editorPanel paneStart badge="01" heading="Import and edit">
               <label panelActions class="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
                 Choose .docx
                 <input class="sr-only" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" (change)="onFileSelected($event)">
@@ -147,12 +147,12 @@ type ToolbarCommand =
                 Start with the sample, or choose a .docx file to import its text.
               }
             </div>
-            <div>
-              <div
-                role="toolbar"
-                aria-label="Text formatting"
-                class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2"
-              >
+            <div
+              panelToolbar
+              role="toolbar"
+              aria-label="Text formatting"
+              class="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto"
+            >
                 <label class="sr-only" for="block-style">Paragraph style</label>
                 <select
                   id="block-style"
@@ -174,7 +174,7 @@ type ToolbarCommand =
                   <option value="quote">Quote</option>
                   <option value="intense-quote">Intense Quote</option>
                 </select>
-                <span aria-hidden="true" class="h-6 border-l border-slate-300"></span>
+                <div role="group" aria-label="Lists" class="btn-group">
                 <button
                   type="button"
                   aria-label="Bulleted list"
@@ -183,7 +183,7 @@ type ToolbarCommand =
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
                   (click)="applyListStyle('bulletList')"
-                >&#8226; List</button>
+                >ul</button>
                 <button
                   type="button"
                   aria-label="Numbered list"
@@ -192,8 +192,9 @@ type ToolbarCommand =
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
                   (click)="applyListStyle('orderedList')"
-                >1. List</button>
-                <span aria-hidden="true" class="h-6 border-l border-slate-300"></span>
+                >ol</button>
+                </div>
+                <div role="group" aria-label="Character styles" class="btn-group">
                 <button
                   type="button"
                   aria-label="Strong (bold)"
@@ -257,16 +258,16 @@ type ToolbarCommand =
                   (mousedown)="$event.preventDefault()"
                   (click)="applyCharacterStyle('emphasis')"
                 >Intense ref.</button>
-              </div>
-              <div #editorRoot class="milkdown-editor min-h-80 rounded-lg border border-slate-200 px-4 py-3"></div>
+                </div>
             </div>
+            <div #editorRoot class="milkdown-editor min-h-80 rounded-lg border border-slate-200 px-4 py-3"></div>
             <div panelFooter class="flex gap-2">
               <span class="rounded bg-slate-100 px-2 py-0.5">Markdown editor</span>
               <span class="rounded bg-slate-100 px-2 py-0.5">GFM</span>
             </div>
           </app-panel>
 
-          <app-panel paneEnd badge="02" heading="Email preview">
+          <app-panel #previewPanel paneEnd badge="02" heading="Email preview">
             <div panelActions class="flex items-center gap-2">
               @if (previewReady()) {
                 <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Compiled</span>
@@ -286,42 +287,46 @@ type ToolbarCommand =
                 The preview updates as you edit. Use "New sample data" to generate a fresh set of Faker values.
               }
             </div>
-            <div class="flex h-full min-h-0 flex-col gap-3">
-              <div class="flex flex-wrap items-center gap-3">
-                <div role="group" aria-label="Email client preview" class="segmented">
-                  @for (option of previewClientOptions; track option.client) {
-                    <button
-                      type="button"
-                      [class.selected]="emailClient() === option.client"
-                      [attr.aria-pressed]="emailClient() === option.client"
-                      (click)="setEmailClient(option.client)"
-                    >{{ option.label }}</button>
-                  }
-                </div>
-                <span class="text-xs text-slate-500">
-                  {{ isDark() ? 'Dark mode as rendered by this client' : 'Switch the app to Dark to emulate client dark modes' }}
-                </span>
+            <div panelToolbar class="flex min-w-0 flex-1 flex-nowrap items-center gap-3 overflow-x-auto">
+              <div role="group" aria-label="Email client preview" class="segmented shrink-0">
+                @for (option of previewClientOptions; track option.client) {
+                  <button
+                    type="button"
+                    [class.selected]="emailClient() === option.client"
+                    [attr.aria-pressed]="emailClient() === option.client"
+                    (click)="setEmailClient(option.client)"
+                  >{{ option.label }}</button>
+                }
               </div>
-              <div class="preview-stage min-h-0 flex-1 rounded-lg bg-slate-100 p-4">
-                <div
-                  class="mx-auto flex h-full min-h-80 max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-sm"
-                  [style.filter]="previewMode() === 'gmail' ? gmailFilter : null"
-                  [style.background-color]="previewMode() === 'apple' || previewMode() === 'outlook' ? '#121212' : null"
-                >
-                  <iframe
-                    #previewFrame
-                    title="Compiled email preview"
-                    class="w-full flex-1 border-0"
-                    [style.background-color]="previewMode() === 'gmail' ? gmailIframeBackground : null"
-                    [class.hidden]="!previewReady()"
-                    sandbox=""
-                  ></iframe>
-                  @if (!previewReady()) {
-                    <div class="flex min-h-80 items-center justify-center px-8 text-center text-sm text-slate-500">
-                      Your compiled email will appear here.
-                    </div>
-                  }
-                </div>
+              <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-600">
+                <input type="checkbox" [checked]="syncScroll()" (change)="onSyncScrollChanged($event)">
+                Sync scroll
+              </label>
+              <span class="shrink-0 whitespace-nowrap text-xs text-slate-500">
+                {{ isDark() ? 'Dark mode as rendered by this client' : 'Switch the app to Dark to emulate client dark modes' }}
+              </span>
+            </div>
+            <div class="preview-stage min-h-full rounded-lg bg-slate-100 p-4">
+              <div
+                class="mx-auto max-w-2xl overflow-hidden rounded-lg bg-white shadow-sm"
+                [style.filter]="previewMode() === 'gmail' ? gmailFilter : null"
+                [style.background-color]="previewMode() === 'apple' || previewMode() === 'outlook' ? '#121212' : null"
+              >
+                <iframe
+                  #previewFrame
+                  title="Compiled email preview"
+                  class="block w-full border-0"
+                  scrolling="no"
+                  [style.background-color]="previewMode() === 'gmail' ? gmailIframeBackground : null"
+                  [class.hidden]="!previewReady()"
+                  sandbox="allow-same-origin"
+                  (load)="fitPreviewFrame()"
+                ></iframe>
+                @if (!previewReady()) {
+                  <div class="flex min-h-80 items-center justify-center px-8 text-center text-sm text-slate-500">
+                    Your compiled email will appear here.
+                  </div>
+                }
               </div>
             </div>
           </app-panel>
@@ -336,6 +341,11 @@ type ToolbarCommand =
 export class App implements AfterViewInit, OnDestroy {
   @ViewChild('editorRoot', { static: true }) private editorRoot!: ElementRef<HTMLDivElement>;
   @ViewChild('previewFrame') private previewFrame?: ElementRef<HTMLIFrameElement>;
+  @ViewChild('editorPanel') private editorPanel?: PanelComponent;
+  @ViewChild('previewPanel') private previewPanel?: PanelComponent;
+
+  protected readonly syncScroll = signal(true);
+  private scrollCleanup: (() => void)[] = [];
 
   protected readonly sourceFile = signal('');
   protected readonly errorMessage = signal('');
@@ -404,6 +414,56 @@ export class App implements AfterViewInit, OnDestroy {
     this.loadPreviewPreferences();
   }
 
+  protected onSyncScrollChanged(event: Event): void {
+    this.syncScroll.set((event.currentTarget as HTMLInputElement).checked);
+  }
+
+  // The iframe is sized to its content so the panel body is the only scroller, which makes it syncable.
+  protected fitPreviewFrame(): void {
+    const frame = this.previewFrame?.nativeElement;
+    const root = frame?.contentDocument?.documentElement;
+    if (!frame || !root) return;
+
+    frame.style.height = `${Math.ceil(root.getBoundingClientRect().height)}px`;
+  }
+
+  private setUpScrollSync(): void {
+    const editorBody = this.editorPanel?.bodyRef().nativeElement;
+    const previewBody = this.previewPanel?.bodyRef().nativeElement;
+    if (!editorBody || !previewBody) return;
+
+    // A programmatic scroll echoes back as a scroll event, but the mirrored target is then already within 1px, so it settles.
+    const mirror = (from: HTMLElement, to: HTMLElement) => () => {
+      if (!this.syncScroll()) return;
+      const fromRange = from.scrollHeight - from.clientHeight;
+      const toRange = to.scrollHeight - to.clientHeight;
+      if (fromRange <= 0 || toRange <= 0) return;
+
+      const target = (from.scrollTop / fromRange) * toRange;
+      if (Math.abs(to.scrollTop - target) > 1) to.scrollTop = target;
+    };
+    const onEditorScroll = mirror(editorBody, previewBody);
+    const onPreviewScroll = mirror(previewBody, editorBody);
+    editorBody.addEventListener('scroll', onEditorScroll, { passive: true });
+    previewBody.addEventListener('scroll', onPreviewScroll, { passive: true });
+    this.scrollCleanup.push(
+      () => editorBody.removeEventListener('scroll', onEditorScroll),
+      () => previewBody.removeEventListener('scroll', onPreviewScroll),
+    );
+
+    const frame = this.previewFrame?.nativeElement;
+    if (frame && typeof ResizeObserver === 'function') {
+      let width = frame.clientWidth;
+      const observer = new ResizeObserver(() => {
+        if (frame.clientWidth === width) return;
+        width = frame.clientWidth;
+        this.fitPreviewFrame();
+      });
+      observer.observe(frame);
+      this.scrollCleanup.push(() => observer.disconnect());
+    }
+  }
+
   protected setEmailClient(client: PreviewClient): void {
     this.emailClient.set(client);
     this.onPreviewModeChanged();
@@ -469,6 +529,7 @@ export class App implements AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit(): Promise<void> {
+    this.setUpScrollSync();
     try {
       const [{ Editor, defaultValueCtx, rootCtx }, commonmarkModule, { gfm }, { nord }] = await Promise.all([
         import('@milkdown/core'),
@@ -513,6 +574,8 @@ export class App implements AfterViewInit, OnDestroy {
   async ngOnDestroy(): Promise<void> {
     this.observer?.disconnect();
     this.systemQuery?.removeEventListener('change', this.onSystemSchemeChange);
+    this.scrollCleanup.forEach((cleanup) => cleanup());
+    this.scrollCleanup = [];
     clearTimeout(this.previewTimer);(this.previewTimer);
     await this.editor?.destroy();
     this.editorThemeStyle?.remove();
