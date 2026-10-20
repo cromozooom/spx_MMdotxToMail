@@ -66,6 +66,34 @@ body {
   color: var(--brand);
 }
 
+.theme-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.theme-control select {
+  height: 2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: #fff;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  color: #1e293b;
+}
+
+.app-dark .theme-control {
+  color: #cbd5e1;
+}
+
+.app-dark .theme-control select {
+  border-color: #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
 .brand-badge {
   background: #e6fff5;
   color: #006b47;

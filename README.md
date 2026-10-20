@@ -38,7 +38,7 @@ Each theme has `colors` for the email/editor backgrounds and a `styles` object f
 
 ## Dark-mode preview
 
-The config panel's **Appearance** section switches the whole app between Light and Dark. Above the preview, pick the client to emulate: Default, Gmail, Apple Mail or Outlook (Outlook is selected initially). In Dark mode the preview renders that client's dark-mode behaviour; in Light mode, or with Default, the email is shown as built. Both choices are saved in localStorage. The preview HTML is transformed before it is set as the iframe `srcdoc`; the real MJML output is unchanged.
+The header has a **Theme** selector (Light, Dark, System; System by default and follows the OS live) that restyles the whole app and is saved in localStorage. Above the preview, pick the client to emulate: Default, Gmail, Apple Mail or Outlook (Outlook is selected initially). In Dark mode the preview renders that client's dark-mode behaviour; in Light mode, or with Default, the email is shown as built. Both choices are saved in localStorage. The preview HTML is transformed before it is set as the iframe `srcdoc`; the real MJML output is unchanged.
 
 - **Gmail (Inverted)**: `filter: invert(0.92) hue-rotate(180deg)` on the iframe container, iframe background `#121212`.
 - **Apple Mail (Media Query)**: injects `@media (prefers-color-scheme: dark)` rules and a `.dark` body class. No filters.

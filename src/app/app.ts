@@ -57,6 +57,9 @@ The team`;
 
 const themeStorageKey = 'dotx-mailmerge.theme-library.v1';
 const previewStorageKey = 'dotx-mailmerge.preview-mode.v1';
+const appThemeStorageKey = 'dotx-mailmerge.app-theme.v1';
+
+type AppTheme = 'light' | 'dark' | 'system';
 const defaultRevisionKey = 'dotx-mailmerge.default-theme-revision';
 
 type ToolbarCommand =
@@ -75,7 +78,17 @@ type ToolbarCommand =
     <app-shell>
       <div shellHeader class="flex items-center justify-between">
         <h1 class="m-0"><a href="./" aria-label="sPX_MMdotXToMail home" class="brand">s<span class="brand-accent">PX</span>_MMdotXToMail</a></h1>
-        <span class="brand-badge rounded-full px-3 py-1 text-xs font-semibold">Proof of concept</span>
+        <div class="flex items-center gap-4">
+          <label for="color-theme" class="theme-control">
+            <span>Theme</span>
+            <select id="color-theme" aria-label="Color theme" (change)="onAppThemeSelected($event)">
+              @for (option of appThemeOptions; track option.value) {
+                <option [value]="option.value" [selected]="option.value === appTheme()">{{ option.label }}</option>
+              }
+            </select>
+          </label>
+          <span class="brand-badge rounded-full px-3 py-1 text-xs font-semibold">Proof of concept</span>
+        </div>
       </div>
 
       <div config class="space-y-5 p-5">
@@ -105,29 +118,6 @@ type ToolbarCommand =
                 (change)="onThemeFileSelected($event)"
               >
             </label>
-          </div>
-        </section>
-
-        <section class="space-y-3">
-          <h2 class="text-base font-semibold">Appearance</h2>
-          <div class="flex flex-col gap-2">
-            <span id="color-scheme-label" class="text-sm font-medium text-slate-600">App color scheme</span>
-            <div role="group" aria-labelledby="color-scheme-label" class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                class="format-button"
-                [class.format-button-active]="!isDark()"
-                [attr.aria-pressed]="!isDark()"
-                (click)="setColorScheme('light')"
-              >Light</button>
-              <button
-                type="button"
-                class="format-button"
-                [class.format-button-active]="isDark()"
-                [attr.aria-pressed]="isDark()"
-                (click)="setColorScheme('dark')"
-              >Dark</button>
-            </div>
           </div>
         </section>
 
@@ -358,7 +348,17 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly activeTheme = computed(
     () => this.themes().find(({ id }) => id === this.selectedThemeId()) ?? DEFAULT_THEME,
   );
-  protected readonly colorScheme = signal<'light' | 'dark'>('light');
+  protected readonly appThemeOptions: { value: AppTheme; label: string }[] = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'system', label: 'System' },
+  ];
+  protected readonly appTheme = signal<AppTheme>('system');
+  private readonly systemDark = signal(false);
+  protected readonly colorScheme = computed<'light' | 'dark'>(() => {
+    const theme = this.appTheme();
+    return theme === 'system' ? (this.systemDark() ? 'dark' : 'light') : theme;
+  });
   protected readonly emailClient = signal<PreviewClient>(DEFAULT_EMAIL_CLIENT);
   // The app-level scheme and the selected client combine: only a real client emulates its dark mode.
   protected readonly previewMode = computed<PreviewMode>(() => {
@@ -390,9 +390,17 @@ export class App implements AfterViewInit, OnDestroy {
   }
 
   private readonly dotxStarter = inject(DotxStarterService);
+  private readonly systemQuery =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : undefined;
+  private readonly onSystemSchemeChange = (event: MediaQueryListEvent): void => {
+    this.systemDark.set(event.matches);
+    this.onPreviewModeChanged();
+  };
 
   constructor() {
     this.loadThemeLibrary();
+    this.systemDark.set(this.systemQuery?.matches ?? false);
+    this.systemQuery?.addEventListener('change', this.onSystemSchemeChange);
     this.loadPreviewPreferences();
   }
 
@@ -401,18 +409,21 @@ export class App implements AfterViewInit, OnDestroy {
     this.onPreviewModeChanged();
   }
 
-  protected setColorScheme(scheme: 'light' | 'dark'): void {
-    this.colorScheme.set(scheme);
+  protected onAppThemeSelected(event: Event): void {
+    const select = event.currentTarget;
+    if (!(select instanceof HTMLSelectElement)) return;
+    const option = this.appThemeOptions.find(({ value }) => value === select.value);
+    if (!option) return;
+
+    this.appTheme.set(option.value);
     this.onPreviewModeChanged();
   }
 
   private onPreviewModeChanged(): void {
-    document.documentElement.classList.toggle('app-dark', this.colorScheme() === 'dark');
+    document.documentElement.classList.toggle('app-dark', this.isDark());
     try {
-      localStorage.setItem(
-        previewStorageKey,
-        JSON.stringify({ colorScheme: this.colorScheme(), emailClient: this.emailClient() }),
-      );
+      localStorage.setItem(appThemeStorageKey, this.appTheme());
+      localStorage.setItem(previewStorageKey, JSON.stringify({ emailClient: this.emailClient() }));
     } catch {
       // Preferences are optional; the preview still works without storage.
     }
@@ -421,17 +432,17 @@ export class App implements AfterViewInit, OnDestroy {
 
   private loadPreviewPreferences(): void {
     try {
+      const theme = this.appThemeOptions.find(({ value }) => value === localStorage.getItem(appThemeStorageKey));
+      if (theme) this.appTheme.set(theme.value);
       const stored = JSON.parse(localStorage.getItem(previewStorageKey) ?? 'null') as {
-        colorScheme?: unknown;
         emailClient?: unknown;
       } | null;
-      if (stored?.colorScheme === 'light' || stored?.colorScheme === 'dark') this.colorScheme.set(stored.colorScheme);
       const client = this.previewClientOptions.find(({ client: id }) => id === stored?.emailClient);
       if (client) this.emailClient.set(client.client);
     } catch {
       // Ignore unreadable preferences and keep the defaults.
     }
-    document.documentElement.classList.toggle('app-dark', this.colorScheme() === 'dark');
+    document.documentElement.classList.toggle('app-dark', this.isDark());
   }
 
   // Replacing srcdoc discards the previous document, so switching modes never accumulates iframes or listeners.
@@ -501,7 +512,8 @@ export class App implements AfterViewInit, OnDestroy {
 
   async ngOnDestroy(): Promise<void> {
     this.observer?.disconnect();
-    clearTimeout(this.previewTimer);
+    this.systemQuery?.removeEventListener('change', this.onSystemSchemeChange);
+    clearTimeout(this.previewTimer);(this.previewTimer);
     await this.editor?.destroy();
     this.editorThemeStyle?.remove();
   }
