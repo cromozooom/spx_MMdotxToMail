@@ -87,7 +87,6 @@ type ToolbarCommand =
               }
             </select>
           </label>
-          <span class="brand-badge rounded-full px-3 py-1 text-xs font-semibold">Proof of concept</span>
         </div>
       </div>
 

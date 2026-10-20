@@ -142,16 +142,6 @@ body {
   color: #e2e8f0;
 }
 
-.brand-badge {
-  background: #e6fff5;
-  color: #006b47;
-}
-
-.app-dark .brand-badge {
-  background: #064e3b;
-  color: var(--brand);
-}
-
 /* App-level dark theme: remaps the Tailwind slate/white surfaces used by the app chrome. */
 .app-dark {
   color-scheme: dark;
