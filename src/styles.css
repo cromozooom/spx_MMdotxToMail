@@ -66,6 +66,54 @@ body {
   color: var(--brand);
 }
 
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  border: 1.25px solid #cbd5e1;
+  border-radius: 5px;
+  background: #f1f5f9;
+  padding: 3px;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.segmented button:hover:not(.selected) {
+  color: #1e293b;
+}
+
+.segmented button.selected {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.133);
+}
+
+.app-dark .segmented {
+  border-color: #3b4555;
+  background: #272e39;
+}
+
+.app-dark .segmented button {
+  color: #adb8c9;
+}
+
+.app-dark .segmented button:hover:not(.selected) {
+  color: #edf0f5;
+}
+
+.app-dark .segmented button.selected {
+  background: #1d222b;
+  color: #edf0f5;
+}
+
 .theme-control {
   display: flex;
   align-items: center;

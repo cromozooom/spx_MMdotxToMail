@@ -288,16 +288,17 @@ type ToolbarCommand =
               }
             </div>
             <div class="flex h-full min-h-0 flex-col gap-3">
-              <div role="toolbar" aria-label="Email client preview" class="flex flex-wrap items-center gap-2">
-                @for (option of previewClientOptions; track option.client) {
-                  <button
-                    type="button"
-                    class="format-button"
-                    [class.format-button-active]="emailClient() === option.client"
-                    [attr.aria-pressed]="emailClient() === option.client"
-                    (click)="setEmailClient(option.client)"
-                  >{{ option.label }}</button>
-                }
+              <div class="flex flex-wrap items-center gap-3">
+                <div role="group" aria-label="Email client preview" class="segmented">
+                  @for (option of previewClientOptions; track option.client) {
+                    <button
+                      type="button"
+                      [class.selected]="emailClient() === option.client"
+                      [attr.aria-pressed]="emailClient() === option.client"
+                      (click)="setEmailClient(option.client)"
+                    >{{ option.label }}</button>
+                  }
+                </div>
                 <span class="text-xs text-slate-500">
                   {{ isDark() ? 'Dark mode as rendered by this client' : 'Switch the app to Dark to emulate client dark modes' }}
                 </span>
