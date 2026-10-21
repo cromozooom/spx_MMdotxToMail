@@ -159,11 +159,87 @@ body {
 
 .app-dark .pipeline-code {
   border-color: var(--ui-border);
-  background: var(--ui-canvas);
+  background: #282a36;
 }
 
 .app-dark .floating-panel-handle-se::after {
   border-color: var(--ui-muted);
+}
+
+/* Syntax colours (GitHub light / Dracula dark), using highlight.js token classes like Hugo's Chroma. */
+.pipeline-code .hljs {
+  --code-fg: #24292f;
+  --code-comment: #6e7781;
+  --code-tag: #116329;
+  --code-attr: #0550ae;
+  --code-string: #0a3069;
+  --code-keyword: #cf222e;
+  --code-title: #8250df;
+  --code-number: #0550ae;
+  background: transparent;
+  color: var(--code-fg);
+}
+
+.app-dark .pipeline-code .hljs {
+  --code-fg: #f8f8f2;
+  --code-comment: #6272a4;
+  --code-tag: #ff79c6;
+  --code-attr: #50fa7b;
+  --code-string: #f1fa8c;
+  --code-keyword: #ff79c6;
+  --code-title: #bd93f9;
+  --code-number: #bd93f9;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-selector-tag {
+  color: var(--code-tag);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--code-attr);
+}
+
+.hljs-string,
+.hljs-meta .hljs-string,
+.hljs-code {
+  color: var(--code-string);
+}
+
+.hljs-keyword,
+.hljs-meta,
+.hljs-doctag {
+  color: var(--code-keyword);
+}
+
+.hljs-section,
+.hljs-title {
+  color: var(--code-title);
+  font-weight: 700;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-link {
+  color: var(--code-number);
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
+.hljs-emphasis {
+  font-style: italic;
 }
 
 /* Joined button group, like Bootstrap's .btn-group */

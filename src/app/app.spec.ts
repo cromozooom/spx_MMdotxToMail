@@ -55,10 +55,10 @@ describe('App', () => {
     expect(markdown).toContain('*Subtitle*');
     expect(markdown).toContain('> A quote');
     expect(markdown).toContain('**Strong**');
-    expect(markdown).toContain('*Subtle*');
+    expect(markdown).toContain('<span class="subtle">Subtle</span>');
     expect(markdown).toContain('***Intense***');
-    expect(markdown).toContain('*Book*');
-    expect(markdown).toContain('*Reference*');
+    expect(markdown).toContain('<span class="book-title">Book</span>');
+    expect(markdown).toContain('<span class="subtle-ref">Reference</span>');
     expect(markdown).toContain('1.  List item');
   });
 

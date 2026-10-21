@@ -1,4 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { highlightCode } from './code-highlight';
+import { prettyPrintMarkup } from './pretty-print';
+import { StyledSpanClass, createStyledSpanPlugins } from './styled-span';
 import { isTourDone, startTour } from './app-tour';
 import { DotxStarterService } from './dotx-starter.service';
 import {
@@ -44,6 +47,7 @@ We're excited to welcome you to **{company}**.
 
 A normal paragraph with **strong**, *emphasis* and ***intense emphasis*** text.
 
+Also <span class="subtle">subtle emphasis</span>, a <span class="book-title">book title</span>, a <span class="subtle-ref">subtle reference</span> and an <span class="intense-ref">intense reference</span>.
 > A quote block.
 
 - First bullet
@@ -222,11 +226,11 @@ type ToolbarCommand =
                 <button
                   type="button"
                   aria-label="Subtle Emphasis"
-                  title="Subtle Emphasis"
+                  title="Subtle Emphasis (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('subtle')"
                 ><em class="text-slate-500">Subtle</em></button>
                 <button
                   type="button"
@@ -240,29 +244,29 @@ type ToolbarCommand =
                 <button
                   type="button"
                   aria-label="Book Title"
-                  title="Book Title (italic in Markdown)"
+                  title="Book Title (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('book-title')"
                 ><cite>Book</cite></button>
                 <button
                   type="button"
                   aria-label="Subtle Reference"
-                  title="Subtle Reference (italic in Markdown)"
+                  title="Subtle Reference (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('subtle-ref')"
                 >Subtle ref.</button>
                 <button
                   type="button"
                   aria-label="Intense Reference"
-                  title="Intense Reference (italic in Markdown)"
+                  title="Intense Reference (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('intense-ref')"
                 >Intense ref.</button>
                 </div>
             </div>
@@ -368,7 +372,7 @@ type ToolbarCommand =
               }
             </div>
             <p class="shrink-0 px-3 pb-2 text-xs leading-5 text-slate-500">{{ currentPipelineStep().description }}</p>
-            <pre class="pipeline-code"><code>{{ pipelineSource() || 'Nothing compiled yet. Edit the document or click "New sample data".' }}</code></pre>
+            <pre class="pipeline-code"><code class="hljs" [innerHTML]="highlightedSource()"></code></pre>
           </div>
         </app-floating-panel>
       }
@@ -449,12 +453,19 @@ export class App implements AfterViewInit, OnDestroy {
   );
   private readonly pipelineSources = signal<Record<PipelineStepId, string>>({ markdown: '', mjml: '', html: '' });
   protected readonly pipelineSource = computed(() => this.pipelineSources()[this.pipelineStep()]);
+  // MJML and the final email are both XML-like markup.
+  protected readonly highlightedSource = computed(() => {
+    const source = this.pipelineSource();
+    if (!source) return 'Nothing compiled yet. Edit the document or click "New sample data".';
+    return highlightCode(source, this.pipelineStep() === 'markdown' ? 'markdown' : 'xml');
+  });
 
   private compiledHtml = '';
 
   private editor?: Editor;
   private editorThemeStyle?: HTMLStyleElement;
   private commandRunners?: Record<ToolbarCommand, (payload?: number) => boolean>;
+  private toggleStyledSpan?: (cls: StyledSpanClass) => unknown;
   private pendingMarkdown = initialMarkdown;
   private observer?: MutationObserver;
   private previewTimer?: ReturnType<typeof setTimeout>;
@@ -611,6 +622,8 @@ export class App implements AfterViewInit, OnDestroy {
         import('@milkdown/theme-nord'),
       ]);
       const { commonmark } = commonmarkModule;
+      const styledSpans = await createStyledSpanPlugins();
+      this.toggleStyledSpan = (cls) => this.editor && styledSpans.toggle(this.editor, cls);
       this.commandRunners = {
         heading: (level) => commonmarkModule.wrapInHeadingCommand.run(level ?? 1),
         paragraph: () => commonmarkModule.turnIntoTextCommand.run(),
@@ -628,6 +641,7 @@ export class App implements AfterViewInit, OnDestroy {
         .config(nord)
         .use(commonmark)
         .use(gfm)
+        .use(styledSpans.plugins)
         .create();
       this.applyThemeToEditor();
       this.editorReady.set(true);
@@ -785,10 +799,11 @@ export class App implements AfterViewInit, OnDestroy {
       ['.milkdown-editor ul, .milkdown-editor ol, .milkdown-editor li', 'list'],
       ['.milkdown-editor strong', 'strong'],
       ['.milkdown-editor em', 'emphasis'],
+      ['.milkdown-editor span.subtle', 'subtleEmphasis'],
       ['.milkdown-editor strong em', 'intenseEmphasis'],
-      ['.milkdown-editor cite', 'cite'],
-      ['.milkdown-editor .subtle-ref', 'subtleReference'],
-      ['.milkdown-editor .intense-ref', 'intenseReference'],
+      ['.milkdown-editor cite, .milkdown-editor span.book-title', 'cite'],
+      ['.milkdown-editor span.subtle-ref', 'subtleReference'],
+      ['.milkdown-editor span.intense-ref', 'intenseReference'],
     ];
 
     const editorRule = `.milkdown-editor,.milkdown-editor .editor{background-color:${theme.colors.editorBackground};color:${theme.colors.editorForeground}}`;
@@ -822,10 +837,11 @@ export class App implements AfterViewInit, OnDestroy {
       ['.email-content ul, .email-content ol, .email-content li', 'list'],
       ['.email-content strong', 'strong'],
       ['.email-content em', 'emphasis'],
+      ['.email-content span.subtle', 'subtleEmphasis'],
       ['.email-content strong em', 'intenseEmphasis'],
-      ['.email-content cite', 'cite'],
-      ['.email-content .subtle-ref', 'subtleReference'],
-      ['.email-content .intense-ref', 'intenseReference'],
+      ['.email-content cite, .email-content span.book-title', 'cite'],
+      ['.email-content span.subtle-ref', 'subtleReference'],
+      ['.email-content span.intense-ref', 'intenseReference'],
     ];
 
     return `${this.createThemeStyleRules(theme, rules)}\n${this.createListLayoutCss('.email-content')}`.replace(
@@ -880,10 +896,15 @@ export class App implements AfterViewInit, OnDestroy {
     this.runToolbarCommand(style);
   }
 
-  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'intense'): void {
+  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'intense' | StyledSpanClass): void {
     if (style === 'intense') {
       this.runToolbarCommand('strong');
       this.runToolbarCommand('emphasis');
+      return;
+    }
+
+    if (style !== 'strong' && style !== 'emphasis') {
+      this.toggleStyledSpan?.(style);
       return;
     }
 
@@ -978,8 +999,8 @@ export class App implements AfterViewInit, OnDestroy {
       this.compiledHtml = result.html;
       this.pipelineSources.set({
         markdown: this.editor.action(getMarkdown()),
-        mjml: mjml.replace(/^ {8}/gm, '').trim(),
-        html: result.html,
+        mjml: prettyPrintMarkup(mjml),
+        html: prettyPrintMarkup(result.html),
       });
       this.mergeData.set(mergeData);
       this.previewReady.set(true);
