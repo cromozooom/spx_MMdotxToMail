@@ -22,6 +22,150 @@ body {
   outline: none;
 }
 
+/* Floating, draggable and resizable window */
+.floating-panel {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1e293b;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+}
+
+.floating-panel-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  height: 2.75rem;
+  padding: 0 0.75rem 0 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.floating-panel-bar:active {
+  cursor: grabbing;
+}
+
+.floating-panel-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.floating-panel-close {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.floating-panel-close:hover {
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.floating-panel-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.floating-panel-handle {
+  position: absolute;
+  touch-action: none;
+}
+
+.floating-panel-handle-e,
+.floating-panel-handle-w {
+  top: 2.75rem;
+  bottom: 0.75rem;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.floating-panel-handle-e { right: 0; }
+.floating-panel-handle-w { left: 0; }
+
+.floating-panel-handle-s {
+  right: 0.75rem;
+  bottom: 0;
+  left: 0.75rem;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.floating-panel-handle-se,
+.floating-panel-handle-sw {
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.floating-panel-handle-se { right: 0; cursor: nwse-resize; }
+.floating-panel-handle-sw { left: 0; cursor: nesw-resize; }
+
+.floating-panel-handle-se::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+}
+
+/* While dragging, keep the pointer events away from iframes so the gesture is not swallowed. */
+.floating-panel-active iframe {
+  pointer-events: none;
+}
+
+.floating-panel-active {
+  user-select: none;
+}
+
+.pipeline-code {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  white-space: pre;
+}
+
+.app-dark .floating-panel {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+.app-dark .floating-panel-bar {
+  border-color: var(--ui-border);
+  background: var(--ui-raised);
+}
+
+.app-dark .pipeline-code {
+  border-color: var(--ui-border);
+  background: var(--ui-canvas);
+}
+
+.app-dark .floating-panel-handle-se::after {
+  border-color: var(--ui-muted);
+}
+
 /* Joined button group, like Bootstrap's .btn-group */
 .btn-group {
   display: inline-flex;

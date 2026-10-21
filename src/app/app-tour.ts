@@ -73,6 +73,15 @@ const TOUR_STEPS: DriveStep[] = [
     },
   },
   {
+    element: '#tour-pipeline',
+    popover: {
+      title: 'How it\'s built',
+      description:
+        'Opens a floating window you can drag and resize. Its tabs show each conversion step: the Markdown, the MJML tags, and the final HTML that would be sent.',
+      side: 'bottom',
+    },
+  },
+  {
     element: '[aria-label="Resize editor and preview"]',
     popover: {
       title: 'Resize panels',
