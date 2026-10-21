@@ -146,18 +146,24 @@ export const DEFAULT_THEME: DocumentTheme = {
     list: { ...defaultTextStyle, marginTop: '8px', marginBottom: '8px' },
     strong: { ...defaultTextStyle, fontWeight: '700' },
     emphasis: { ...defaultTextStyle, fontStyle: 'italic' },
-    subtleEmphasis: { ...defaultTextStyle, fontStyle: 'italic', color: '#64748b' },
-    intenseEmphasis: { ...defaultTextStyle, fontWeight: '700', fontStyle: 'italic' },
-    cite: { ...defaultTextStyle, fontStyle: 'italic' },
-    subtleReference: { ...defaultTextStyle, fontStyle: 'italic', color: '#64748b' },
-    intenseReference: { ...defaultTextStyle, fontWeight: '600', fontStyle: 'italic' },
+    subtleEmphasis: { ...defaultTextStyle, fontStyle: 'italic', color: '#94a3b8' },
+    intenseEmphasis: { ...defaultTextStyle, fontWeight: '700', fontStyle: 'italic', color: '#00835f' },
+    cite: { ...defaultTextStyle, fontStyle: 'italic', textDecoration: 'underline' },
+    subtleReference: { ...defaultTextStyle, color: '#64748b', fontSize: '13px', letterSpacing: '0.08em' },
+    intenseReference: {
+      ...defaultTextStyle,
+      fontWeight: '700',
+      color: '#b45309',
+      backgroundColor: '#fef3c7',
+      letterSpacing: '0.05em',
+    },
   },
 };
 
 export const DEFAULT_THEME_LIBRARY: DocumentTheme[] = [DEFAULT_THEME];
 
 // Bump when DEFAULT_THEME changes so saved copies in local storage are refreshed once.
-export const DEFAULT_THEME_REVISION = '3';
+export const DEFAULT_THEME_REVISION = '4';
 
 const lengthPattern = /^-?\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/;
 const borderPattern = /^(?:none|\d+(?:\.\d+)?px (?:solid|dashed|dotted|double) (?:#[\da-fA-F]{3,8}|[a-zA-Z]+))$/;

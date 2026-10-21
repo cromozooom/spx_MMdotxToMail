@@ -40,12 +40,20 @@ turndown.addRule('documentSubtitle', {
   replacement: (content) => `\n\n*${content.trim()}*\n\n`,
 });
 
-turndown.addRule('wordCitation', {
-  filter: (node) =>
-    node.nodeName === 'CITE' ||
-    (node.nodeName === 'SPAN' &&
-      (node.classList.contains('subtle-ref') || node.classList.contains('intense-ref'))),
-  replacement: (content) => `*${content}*`,
+// Character styles Markdown has no syntax for are kept as classed spans so the email theme can style them.
+const STYLE_SPAN_BY_SELECTOR: [(node: HTMLElement) => boolean, string][] = [
+  [(node) => node.nodeName === 'EM' && node.classList.contains('subtle'), 'subtle'],
+  [(node) => node.nodeName === 'CITE', 'book-title'],
+  [(node) => node.nodeName === 'SPAN' && node.classList.contains('subtle-ref'), 'subtle-ref'],
+  [(node) => node.nodeName === 'SPAN' && node.classList.contains('intense-ref'), 'intense-ref'],
+];
+
+turndown.addRule('wordCharacterStyle', {
+  filter: (node) => STYLE_SPAN_BY_SELECTOR.some(([matches]) => matches(node)),
+  replacement: (content, node) => {
+    const cls = STYLE_SPAN_BY_SELECTOR.find(([matches]) => matches(node))![1];
+    return `<span class="${cls}">${content}</span>`;
+  },
 });
 
 export function convertWordHtmlToMarkdown(html: string): string {

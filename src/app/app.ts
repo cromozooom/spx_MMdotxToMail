@@ -1,4 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { highlightCode } from './code-highlight';
+import { prettyPrintMarkup } from './pretty-print';
+import { StyledSpanClass, createStyledSpanPlugins } from './styled-span';
 import { isTourDone, startTour } from './app-tour';
 import { DotxStarterService } from './dotx-starter.service';
 import {
@@ -13,6 +16,7 @@ import {
 
 type PreviewClient = 'default' | EmailClient;
 import { AppShellComponent } from './layout/app-shell.component';
+import { FloatingPanelComponent } from './layout/floating-panel.component';
 import { PanelComponent } from './layout/panel.component';
 import { SplitPaneComponent } from './layout/split-pane.component';
 import type { Editor } from '@milkdown/core';
@@ -43,6 +47,7 @@ We're excited to welcome you to **{company}**.
 
 A normal paragraph with **strong**, *emphasis* and ***intense emphasis*** text.
 
+Also <span class="subtle">subtle emphasis</span>, a <span class="book-title">book title</span>, a <span class="subtle-ref">subtle reference</span> and an <span class="intense-ref">intense reference</span>.
 > A quote block.
 
 - First bullet
@@ -61,6 +66,7 @@ const previewStorageKey = 'dotx-mailmerge.preview-mode.v1';
 const appThemeStorageKey = 'dotx-mailmerge.app-theme.v1';
 
 type AppTheme = 'light' | 'dark' | 'system';
+type PipelineStepId = 'markdown' | 'mjml' | 'html';
 const defaultRevisionKey = 'dotx-mailmerge.default-theme-revision';
 
 type ToolbarCommand =
@@ -74,7 +80,7 @@ type ToolbarCommand =
 
 @Component({
   selector: 'app-root',
-  imports: [AppShellComponent, PanelComponent, SplitPaneComponent],
+  imports: [AppShellComponent, PanelComponent, SplitPaneComponent, FloatingPanelComponent],
   template: `
     <app-shell>
       <div shellHeader class="flex items-center justify-between">
@@ -220,11 +226,11 @@ type ToolbarCommand =
                 <button
                   type="button"
                   aria-label="Subtle Emphasis"
-                  title="Subtle Emphasis"
+                  title="Subtle Emphasis (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('subtle')"
                 ><em class="text-slate-500">Subtle</em></button>
                 <button
                   type="button"
@@ -238,29 +244,29 @@ type ToolbarCommand =
                 <button
                   type="button"
                   aria-label="Book Title"
-                  title="Book Title (italic in Markdown)"
+                  title="Book Title (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('book-title')"
                 ><cite>Book</cite></button>
                 <button
                   type="button"
                   aria-label="Subtle Reference"
-                  title="Subtle Reference (italic in Markdown)"
+                  title="Subtle Reference (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('subtle-ref')"
                 >Subtle ref.</button>
                 <button
                   type="button"
                   aria-label="Intense Reference"
-                  title="Intense Reference (italic in Markdown)"
+                  title="Intense Reference (kept as a span in Markdown)"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('emphasis')"
+                  (click)="applyCharacterStyle('intense-ref')"
                 >Intense ref.</button>
                 </div>
             </div>
@@ -302,6 +308,13 @@ type ToolbarCommand =
                   >{{ option.label }}</button>
                 }
               </div>
+              <button
+                id="tour-pipeline"
+                type="button"
+                class="shrink-0 whitespace-nowrap text-xs font-medium underline decoration-dotted underline-offset-2 hover:text-[var(--brand)]"
+                [attr.aria-expanded]="pipelineOpen()"
+                (click)="pipelineOpen.set(!pipelineOpen())"
+              >How it's built</button>
               <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-slate-600">
                 <input type="checkbox" [checked]="syncScroll()" (change)="onSyncScrollChanged($event)">
                 Sync scroll
@@ -340,6 +353,29 @@ type ToolbarCommand =
         Documents are processed in your browser. This POC supports text and basic formatting; verify the final HTML in your target email clients before sending.
       </span>
     </app-shell>
+
+      @if (pipelineOpen()) {
+        <app-floating-panel heading="How the email is built" (closed)="pipelineOpen.set(false)">
+          <button floatingActions type="button" class="format-button" (click)="copyPipelineStep()">
+            {{ copied() ? 'Copied' : 'Copy' }}
+          </button>
+          <div class="flex h-full min-h-0 flex-col">
+            <div role="tablist" aria-label="Conversion steps" class="segmented m-3 shrink-0 self-start">
+              @for (step of pipelineSteps; track step.id) {
+                <button
+                  type="button"
+                  role="tab"
+                  [class.selected]="pipelineStep() === step.id"
+                  [attr.aria-selected]="pipelineStep() === step.id"
+                  (click)="pipelineStep.set(step.id)"
+                >{{ step.label }}</button>
+              }
+            </div>
+            <p class="shrink-0 px-3 pb-2 text-xs leading-5 text-slate-500">{{ currentPipelineStep().description }}</p>
+            <pre class="pipeline-code"><code class="hljs" [innerHTML]="highlightedSource()"></code></pre>
+          </div>
+        </app-floating-panel>
+      }
   `,
 })
 export class App implements AfterViewInit, OnDestroy {
@@ -389,11 +425,47 @@ export class App implements AfterViewInit, OnDestroy {
     { client: 'outlook', label: 'Outlook' },
   ];
 
+  protected readonly pipelineOpen = signal(false);
+  protected readonly pipelineStep = signal<PipelineStepId>('markdown');
+  protected readonly copied = signal(false);
+  protected readonly pipelineSteps: { id: PipelineStepId; label: string; description: string }[] = [
+    {
+      id: 'markdown',
+      label: '1 · Markdown',
+      description:
+        'What you typed or imported from Word. Word styles were mapped to Markdown (headings, quotes, lists, emphasis). {placeholders} are still unresolved.',
+    },
+    {
+      id: 'mjml',
+      label: '2 · MJML',
+      description:
+        'The Markdown rendered to HTML, merged with this sample data and wrapped in MJML tags using the active theme (colours, fonts, spacing).',
+    },
+    {
+      id: 'html',
+      label: '3 · HTML',
+      description:
+        'The final email HTML produced by compiling the MJML: table-based layout with inline styles, ready to send. Client dark-mode previews are not included here.',
+    },
+  ];
+  protected readonly currentPipelineStep = computed(
+    () => this.pipelineSteps.find(({ id }) => id === this.pipelineStep()) ?? this.pipelineSteps[0],
+  );
+  private readonly pipelineSources = signal<Record<PipelineStepId, string>>({ markdown: '', mjml: '', html: '' });
+  protected readonly pipelineSource = computed(() => this.pipelineSources()[this.pipelineStep()]);
+  // MJML and the final email are both XML-like markup.
+  protected readonly highlightedSource = computed(() => {
+    const source = this.pipelineSource();
+    if (!source) return 'Nothing compiled yet. Edit the document or click "New sample data".';
+    return highlightCode(source, this.pipelineStep() === 'markdown' ? 'markdown' : 'xml');
+  });
+
   private compiledHtml = '';
 
   private editor?: Editor;
   private editorThemeStyle?: HTMLStyleElement;
   private commandRunners?: Record<ToolbarCommand, (payload?: number) => boolean>;
+  private toggleStyledSpan?: (cls: StyledSpanClass) => unknown;
   private pendingMarkdown = initialMarkdown;
   private observer?: MutationObserver;
   private previewTimer?: ReturnType<typeof setTimeout>;
@@ -550,6 +622,8 @@ export class App implements AfterViewInit, OnDestroy {
         import('@milkdown/theme-nord'),
       ]);
       const { commonmark } = commonmarkModule;
+      const styledSpans = await createStyledSpanPlugins();
+      this.toggleStyledSpan = (cls) => this.editor && styledSpans.toggle(this.editor, cls);
       this.commandRunners = {
         heading: (level) => commonmarkModule.wrapInHeadingCommand.run(level ?? 1),
         paragraph: () => commonmarkModule.turnIntoTextCommand.run(),
@@ -567,6 +641,7 @@ export class App implements AfterViewInit, OnDestroy {
         .config(nord)
         .use(commonmark)
         .use(gfm)
+        .use(styledSpans.plugins)
         .create();
       this.applyThemeToEditor();
       this.editorReady.set(true);
@@ -724,10 +799,11 @@ export class App implements AfterViewInit, OnDestroy {
       ['.milkdown-editor ul, .milkdown-editor ol, .milkdown-editor li', 'list'],
       ['.milkdown-editor strong', 'strong'],
       ['.milkdown-editor em', 'emphasis'],
+      ['.milkdown-editor span.subtle', 'subtleEmphasis'],
       ['.milkdown-editor strong em', 'intenseEmphasis'],
-      ['.milkdown-editor cite', 'cite'],
-      ['.milkdown-editor .subtle-ref', 'subtleReference'],
-      ['.milkdown-editor .intense-ref', 'intenseReference'],
+      ['.milkdown-editor cite, .milkdown-editor span.book-title', 'cite'],
+      ['.milkdown-editor span.subtle-ref', 'subtleReference'],
+      ['.milkdown-editor span.intense-ref', 'intenseReference'],
     ];
 
     const editorRule = `.milkdown-editor,.milkdown-editor .editor{background-color:${theme.colors.editorBackground};color:${theme.colors.editorForeground}}`;
@@ -761,10 +837,11 @@ export class App implements AfterViewInit, OnDestroy {
       ['.email-content ul, .email-content ol, .email-content li', 'list'],
       ['.email-content strong', 'strong'],
       ['.email-content em', 'emphasis'],
+      ['.email-content span.subtle', 'subtleEmphasis'],
       ['.email-content strong em', 'intenseEmphasis'],
-      ['.email-content cite', 'cite'],
-      ['.email-content .subtle-ref', 'subtleReference'],
-      ['.email-content .intense-ref', 'intenseReference'],
+      ['.email-content cite, .email-content span.book-title', 'cite'],
+      ['.email-content span.subtle-ref', 'subtleReference'],
+      ['.email-content span.intense-ref', 'intenseReference'],
     ];
 
     return `${this.createThemeStyleRules(theme, rules)}\n${this.createListLayoutCss('.email-content')}`.replace(
@@ -819,10 +896,15 @@ export class App implements AfterViewInit, OnDestroy {
     this.runToolbarCommand(style);
   }
 
-  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'intense'): void {
+  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'intense' | StyledSpanClass): void {
     if (style === 'intense') {
       this.runToolbarCommand('strong');
       this.runToolbarCommand('emphasis');
+      return;
+    }
+
+    if (style !== 'strong' && style !== 'emphasis') {
+      this.toggleStyledSpan?.(style);
       return;
     }
 
@@ -846,6 +928,16 @@ export class App implements AfterViewInit, OnDestroy {
     void this.importDocument(file);
   }
 
+  protected async copyPipelineStep(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.pipelineSource());
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 1500);
+    } catch {
+      // Clipboard access can be denied; the text is still selectable in the panel.
+    }
+  }
+
   protected async buildEmail(reuseMergeData = false): Promise<void> {
     if (!this.editor) {
       this.errorMessage.set('The Markdown editor is not ready yet. Please try again.');
@@ -856,7 +948,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.errorMessage.set('');
 
     try {
-      const [{ getHTML }, { faker }, { default: mjml2html }] = await Promise.all([
+      const [{ getHTML, getMarkdown }, { faker }, { default: mjml2html }] = await Promise.all([
         import('@milkdown/utils'),
         import('@faker-js/faker'),
         import('mjml-browser'),
@@ -905,6 +997,11 @@ export class App implements AfterViewInit, OnDestroy {
       }
 
       this.compiledHtml = result.html;
+      this.pipelineSources.set({
+        markdown: this.editor.action(getMarkdown()),
+        mjml: prettyPrintMarkup(mjml),
+        html: prettyPrintMarkup(result.html),
+      });
       this.mergeData.set(mergeData);
       this.previewReady.set(true);
       this.renderPreview();
