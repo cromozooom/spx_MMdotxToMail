@@ -1,4 +1,5 @@
 import { Component, ElementRef, HostListener, OnDestroy, inject, input, output, signal } from '@angular/core';
+import { ZIndexService } from './z-index.service';
 
 type ResizeEdge = 'e' | 's' | 'w' | 'se' | 'sw';
 
@@ -21,6 +22,8 @@ const VIEWPORT_MARGIN = 8;
       [style.top.px]="y()"
       [style.width.px]="width()"
       [style.height.px]="height()"
+      [style.z-index]="zIndex()"
+      (pointerdown)="bringToFront()"
     >
       <header class="floating-panel-bar" (pointerdown)="startDrag($event)">
         <h2 class="floating-panel-title">{{ heading() }}</h2>
@@ -38,6 +41,12 @@ const VIEWPORT_MARGIN = 8;
 })
 export class FloatingPanelComponent implements OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly zIndexService = inject(ZIndexService);
+  protected readonly zIndex = signal(this.zIndexService.next());
+
+  protected bringToFront(): void {
+    if (!this.zIndexService.isTop(this.zIndex())) this.zIndex.set(this.zIndexService.next());
+  }
 
   readonly heading = input.required<string>();
   readonly closed = output<void>();

@@ -1,7 +1,8 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { highlightCode } from './code-highlight';
 import { prettyPrintMarkup } from './pretty-print';
-import { StyledSpanClass, createStyledSpanPlugins } from './styled-span';
+import { StyledSpanClass, STYLED_SPAN_CLASSES, createStyledSpanPlugins } from './styled-span';
+import { BlockAlign, createBlockLayoutPlugins } from './block-layout';
 import { isTourDone, startTour } from './app-tour';
 import { DotxStarterService } from './dotx-starter.service';
 import {
@@ -20,6 +21,9 @@ import { FloatingPanelComponent } from './layout/floating-panel.component';
 import { PanelComponent } from './layout/panel.component';
 import { SplitPaneComponent } from './layout/split-pane.component';
 import type { Editor } from '@milkdown/core';
+import type { EditorView } from '@milkdown/prose/view';
+import { NgOptionTemplateDirective, NgSelectComponent } from '@ng-select/ng-select';
+import { FormsModule } from '@angular/forms';
 import {
   DEFAULT_THEME,
   DEFAULT_THEME_REVISION,  DEFAULT_THEME_LIBRARY,
@@ -75,12 +79,22 @@ type ToolbarCommand =
   | 'blockquote'
   | 'bulletList'
   | 'orderedList'
+  | 'codeBlock'
   | 'strong'
-  | 'emphasis';
+  | 'emphasis'
+  | 'strike';
+
+interface GalleryStyle {
+  id: string;
+  label: string;
+  kind: 'block' | 'list' | 'char';
+  value: string;
+  html: string;
+}
 
 @Component({
   selector: 'app-root',
-  imports: [AppShellComponent, PanelComponent, SplitPaneComponent, FloatingPanelComponent],
+  imports: [AppShellComponent, PanelComponent, SplitPaneComponent, FloatingPanelComponent, NgSelectComponent, NgOptionTemplateDirective, FormsModule],
   template: `
     <app-shell>
       <div shellHeader class="flex items-center justify-between">
@@ -163,27 +177,78 @@ type ToolbarCommand =
               aria-label="Text formatting"
               class="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto"
             >
-                <label class="sr-only" for="block-style">Paragraph style</label>
-                <select
-                  id="block-style"
-                  aria-label="Paragraph style"
-                  class="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700"
+                <button
+                  type="button"
+                  class="format-button shrink-0"
+                  title="Open the styles gallery"
+                  [attr.aria-expanded]="stylesOpen()"
                   [disabled]="!editorReady()"
-                  (change)="onBlockStyleSelected($event)"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="stylesOpen.set(!stylesOpen())"
+                >Styles</button>
+                <label class="sr-only" for="block-style">Paragraph style</label>
+                <ng-select
+                  id="block-style"
+                  class="block-style-select"
+                  aria-label="Paragraph style"
+                  [items]="blockStyleOptions"
+                  bindLabel="label"
+                  bindValue="value"
+                  [clearable]="false"
+                  [searchable]="false"
+                  [appendTo]="'body'"
+                  placeholder="Style"
+                  [ngModel]="dropdownValue()"
+                  [disabled]="!editorReady()"
+                  (change)="onBlockStyleChanged($event?.value)"
                 >
-                  <option value="paragraph">Paragraph</option>
-                  <option value="title">Title</option>
-                  <option value="subtitle">Subtitle</option>
-                  <option value="heading-1">Heading 1</option>
-                  <option value="heading-2">Heading 2</option>
-                  <option value="heading-3">Heading 3</option>
-                  <option value="heading-4">Heading 4</option>
-                  <option value="heading-5">Heading 5</option>
-                  <option value="heading-6">Heading 6</option>
-                  <option value="heading-7">Heading 7 (level 6)</option>
-                  <option value="quote">Quote</option>
-                  <option value="intense-quote">Intense Quote</option>
-                </select>
+                  <ng-template ng-option-tmp let-item="item">
+                    <div class="style-option milkdown-editor" [innerHTML]="item.html"></div>
+                  </ng-template>
+                </ng-select>
+                <ng-select
+                  id="block-align"
+                  class="align-select"
+                  aria-label="Text alignment"
+                  [items]="alignOptions"
+                  bindLabel="label"
+                  bindValue="value"
+                  [clearable]="false"
+                  [searchable]="false"
+                  [appendTo]="'body'"
+                  [ngModel]="currentAlign()"
+                  [disabled]="!editorReady()"
+                  (change)="onAlignChanged($event?.value)"
+                ></ng-select>
+                <div role="group" aria-label="Indent" class="btn-group">
+                <button
+                  type="button"
+                  aria-label="Decrease indent"
+                  title="Decrease indent (10px)"
+                  class="format-button"
+                  [disabled]="!editorReady() || currentIndent() === 0"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="changeIndent(-1)"
+                >⇤</button>
+                <button
+                  type="button"
+                  aria-label="Increase indent"
+                  title="Increase indent (10px)"
+                  class="format-button"
+                  [disabled]="!editorReady()"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="changeIndent(1)"
+                >⇥</button>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Clear styles"
+                  title="Clear all styles from the selected block"
+                  class="format-button"
+                  [disabled]="!editorReady()"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="clearStyles()"
+                >Clear</button>
                 <div role="group" aria-label="Lists" class="btn-group">
                 <button
                   type="button"
@@ -192,6 +257,8 @@ type ToolbarCommand =
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
+                  [class.format-button-active]="isActive('bullet')"
+                  [attr.aria-pressed]="isActive('bullet')"
                   (click)="applyListStyle('bulletList')"
                 >ul</button>
                 <button
@@ -201,6 +268,8 @@ type ToolbarCommand =
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
+                  [class.format-button-active]="isActive('ordered')"
+                  [attr.aria-pressed]="isActive('ordered')"
                   (click)="applyListStyle('orderedList')"
                 >ol</button>
                 </div>
@@ -212,6 +281,8 @@ type ToolbarCommand =
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
+                  [class.format-button-active]="isActive('strong')"
+                  [attr.aria-pressed]="isActive('strong')"
                   (click)="applyCharacterStyle('strong')"
                 ><strong>B</strong></button>
                 <button
@@ -221,53 +292,21 @@ type ToolbarCommand =
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
+                  [class.format-button-active]="isActive('emphasis')"
+                  [attr.aria-pressed]="isActive('emphasis')"
                   (click)="applyCharacterStyle('emphasis')"
                 ><em>I</em></button>
                 <button
                   type="button"
-                  aria-label="Subtle Emphasis"
-                  title="Subtle Emphasis (kept as a span in Markdown)"
+                  aria-label="Strikethrough"
+                  title="Strikethrough"
                   class="format-button"
                   [disabled]="!editorReady()"
                   (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('subtle')"
-                ><em class="text-slate-500">Subtle</em></button>
-                <button
-                  type="button"
-                  aria-label="Intense Emphasis"
-                  title="Intense Emphasis"
-                  class="format-button"
-                  [disabled]="!editorReady()"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('intense')"
-                ><strong><em>B+I</em></strong></button>
-                <button
-                  type="button"
-                  aria-label="Book Title"
-                  title="Book Title (kept as a span in Markdown)"
-                  class="format-button"
-                  [disabled]="!editorReady()"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('book-title')"
-                ><cite>Book</cite></button>
-                <button
-                  type="button"
-                  aria-label="Subtle Reference"
-                  title="Subtle Reference (kept as a span in Markdown)"
-                  class="format-button"
-                  [disabled]="!editorReady()"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('subtle-ref')"
-                >Subtle ref.</button>
-                <button
-                  type="button"
-                  aria-label="Intense Reference"
-                  title="Intense Reference (kept as a span in Markdown)"
-                  class="format-button"
-                  [disabled]="!editorReady()"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="applyCharacterStyle('intense-ref')"
-                >Intense ref.</button>
+                  [class.format-button-active]="isActive('strike')"
+                  [attr.aria-pressed]="isActive('strike')"
+                  (click)="applyCharacterStyle('strike')"
+                ><s>S</s></button>
                 </div>
             </div>
             <div #editorRoot class="milkdown-editor min-h-80 rounded-lg border border-slate-200 px-4 py-3"></div>
@@ -308,6 +347,17 @@ type ToolbarCommand =
                   >{{ option.label }}</button>
                 }
               </div>
+              <div role="group" aria-label="Preview width" class="segmented shrink-0">
+                @for (option of viewportOptions; track option.value) {
+                  <button
+                    type="button"
+                    [class.selected]="previewViewport() === option.value"
+                    [attr.aria-pressed]="previewViewport() === option.value"
+                    [title]="option.title"
+                    (click)="previewViewport.set(option.value)"
+                  >{{ option.label }}</button>
+                }
+              </div>
               <button
                 id="tour-pipeline"
                 type="button"
@@ -325,7 +375,8 @@ type ToolbarCommand =
             </div>
             <div class="preview-stage min-h-full rounded-lg bg-slate-100 p-4">
               <div
-                class="mx-auto max-w-2xl overflow-hidden rounded-lg bg-white shadow-sm"
+                class="mx-auto overflow-hidden rounded-lg bg-white shadow-sm transition-[max-width] duration-200"
+                [style.max-width.px]="previewViewport() === 'mobile' ? 375 : 760"
                 [style.filter]="previewMode() === 'gmail' ? gmailFilter : null"
                 [style.background-color]="previewMode() === 'apple' || previewMode() === 'outlook' ? '#121212' : null"
               >
@@ -353,6 +404,30 @@ type ToolbarCommand =
         Documents are processed in your browser. This POC supports text and basic formatting; verify the final HTML in your target email clients before sending.
       </span>
     </app-shell>
+
+      @if (stylesOpen()) {
+        <app-floating-panel heading="Styles" (closed)="stylesOpen.set(false)">
+          <div floatingActions role="group" aria-label="Gallery layout" class="segmented">
+            <button type="button" [class.selected]="stylesLayout() === 'grid'" [attr.aria-pressed]="stylesLayout() === 'grid'" (click)="stylesLayout.set('grid')">Grid</button>
+            <button type="button" [class.selected]="stylesLayout() === 'list'" [attr.aria-pressed]="stylesLayout() === 'list'" (click)="stylesLayout.set('list')">List</button>
+          </div>
+          <div class="styles-gallery milkdown-editor" [class.styles-list]="stylesLayout() === 'list'" role="list" aria-label="Styles gallery">
+            @for (item of styleGallery; track item.id) {
+              <button
+                type="button"
+                role="listitem"
+                class="style-tile"
+                [title]="'Apply ' + item.label"
+                (mousedown)="$event.preventDefault()"
+                (click)="applyGalleryStyle(item)"
+              >
+                <span class="style-tile-label">{{ item.label }}</span>
+                <span class="style-tile-preview" [innerHTML]="item.html"></span>
+              </button>
+            }
+          </div>
+        </app-floating-panel>
+      }
 
       @if (pipelineOpen()) {
         <app-floating-panel heading="How the email is built" (closed)="pipelineOpen.set(false)">
@@ -425,6 +500,90 @@ export class App implements AfterViewInit, OnDestroy {
     { client: 'outlook', label: 'Outlook' },
   ];
 
+  protected readonly previewViewport = signal<'desktop' | 'mobile'>('desktop');
+  protected readonly viewportOptions: { value: 'desktop' | 'mobile'; label: string; title: string }[] = [
+    { value: 'desktop', label: 'Desktop', title: 'Wide email layout (760px)' },
+    { value: 'mobile', label: 'Mobile', title: 'Phone-width email layout (375px)' },
+  ];
+  protected readonly stylesOpen = signal(false);
+  protected readonly currentBlockStyle = signal<string | null>('paragraph');
+  protected readonly activeFormats = signal<ReadonlySet<string>>(new Set());
+  protected readonly alignOptions: { value: BlockAlign; label: string }[] = [
+    { value: 'left', label: 'Left' },
+    { value: 'center', label: 'Center' },
+    { value: 'right', label: 'Right' },
+    { value: 'justify', label: 'Justify' },
+  ];
+  protected readonly currentAlign = signal<BlockAlign>('left');
+  protected readonly currentIndent = signal(0);
+  private blockLayout?: Awaited<ReturnType<typeof createBlockLayoutPlugins>>;
+
+  protected onAlignChanged(value: BlockAlign | undefined): void {
+    if (!value || !this.editor) return;
+    this.blockLayout?.setAlign(this.editor, value);
+    this.syncBlockStyle();
+  }
+
+  protected changeIndent(direction: 1 | -1): void {
+    if (!this.editor) return;
+    this.blockLayout?.changeIndent(this.editor, direction);
+    this.syncBlockStyle();
+  }
+
+  protected clearStyles(): void {
+    if (!this.editor) return;
+    this.liftOutOfBlockquote();
+    this.blockLayout?.clearBlockStyles(this.editor);
+    this.syncBlockStyle();
+  }
+  protected readonly blockStyleOptions: { value: string; label: string; kind: 'block' | 'char'; html: string }[] = [
+    { value: 'paragraph', label: 'Paragraph', kind: 'block', html: '<p>Paragraph</p>' },
+    { value: 'heading-1', label: 'Heading 1', kind: 'block', html: '<h1>Heading 1</h1>' },
+    { value: 'heading-2', label: 'Heading 2', kind: 'block', html: '<h2>Heading 2</h2>' },
+    { value: 'heading-3', label: 'Heading 3', kind: 'block', html: '<h3>Heading 3</h3>' },
+    { value: 'heading-4', label: 'Heading 4', kind: 'block', html: '<h4>Heading 4</h4>' },
+    { value: 'heading-5', label: 'Heading 5', kind: 'block', html: '<h5>Heading 5</h5>' },
+    { value: 'heading-6', label: 'Heading 6', kind: 'block', html: '<h6>Heading 6</h6>' },
+    { value: 'quote', label: 'Quote', kind: 'block', html: '<blockquote>Quote</blockquote>' },
+    { value: 'code', label: 'Code block', kind: 'block', html: '<pre><code>Code block</code></pre>' },
+    { value: 'subtle', label: 'Subtle Emphasis', kind: 'char', html: '<p><span class="subtle">Subtle Emphasis</span></p>' },
+    { value: 'intense', label: 'Intense Emphasis', kind: 'char', html: '<p><strong><em>Intense Emphasis</em></strong></p>' },
+    { value: 'book-title', label: 'Book Title', kind: 'char', html: '<p><cite>Book Title</cite></p>' },
+    { value: 'subtle-ref', label: 'Subtle Reference', kind: 'char', html: '<p><span class="subtle-ref">Subtle Reference</span></p>' },
+    { value: 'intense-ref', label: 'Intense Reference', kind: 'char', html: '<p><span class="intense-ref">Intense Reference</span></p>' },
+  ];
+  private static readonly dropdownCharStyles = ['intense', 'subtle', 'book-title', 'subtle-ref', 'intense-ref'];
+  // A character style at the cursor takes over the dropdown; otherwise it shows the block type.
+  protected readonly dropdownValue = computed(() => {
+    const formats = this.activeFormats();
+    return App.dropdownCharStyles.find((style) => formats.has(style)) ?? this.currentBlockStyle();
+  });
+  private getEditorView?: () => EditorView | undefined;
+  private liftCommand?: (state: EditorView['state'], dispatch: EditorView['dispatch']) => boolean;
+  private readonly onSelectionChange = (): void => this.syncBlockStyle();
+  protected readonly stylesLayout = signal<'grid' | 'list'>('grid');
+  protected readonly styleGallery: GalleryStyle[] = [
+    { id: 'paragraph', label: 'Paragraph', kind: 'block', value: 'paragraph', html: '<p>Normal text</p>' },
+    { id: 'title', label: 'Title', kind: 'block', value: 'title', html: '<h1 class="document-title">Title</h1>' },
+    { id: 'subtitle', label: 'Subtitle', kind: 'block', value: 'subtitle', html: '<p class="document-subtitle">Subtitle</p>' },
+    { id: 'h1', label: 'Heading 1', kind: 'block', value: 'heading-1', html: '<h1>Heading 1</h1>' },
+    { id: 'h2', label: 'Heading 2', kind: 'block', value: 'heading-2', html: '<h2>Heading 2</h2>' },
+    { id: 'h3', label: 'Heading 3', kind: 'block', value: 'heading-3', html: '<h3>Heading 3</h3>' },
+    { id: 'h4', label: 'Heading 4', kind: 'block', value: 'heading-4', html: '<h4>Heading 4</h4>' },
+    { id: 'h5', label: 'Heading 5', kind: 'block', value: 'heading-5', html: '<h5>Heading 5</h5>' },
+    { id: 'h6', label: 'Heading 6', kind: 'block', value: 'heading-6', html: '<h6>Heading 6</h6>' },
+    { id: 'quote', label: 'Quote', kind: 'block', value: 'quote', html: '<blockquote>Quote</blockquote>' },
+    { id: 'intense-quote', label: 'Intense Quote', kind: 'block', value: 'intense-quote', html: '<blockquote class="intense">Intense quote</blockquote>' },
+    { id: 'bullet', label: 'Bulleted list', kind: 'list', value: 'bulletList', html: '<ul><li>List item</li></ul>' },
+    { id: 'ordered', label: 'Numbered list', kind: 'list', value: 'orderedList', html: '<ol><li>List item</li></ol>' },
+    { id: 'strong', label: 'Strong', kind: 'char', value: 'strong', html: '<strong>Strong</strong>' },
+    { id: 'emphasis', label: 'Emphasis', kind: 'char', value: 'emphasis', html: '<em>Emphasis</em>' },
+    { id: 'subtle', label: 'Subtle Emphasis', kind: 'char', value: 'subtle', html: '<span class="subtle">Subtle Emphasis</span>' },
+    { id: 'intense', label: 'Intense Emphasis', kind: 'char', value: 'intense', html: '<strong><em>Intense Emphasis</em></strong>' },
+    { id: 'book-title', label: 'Book Title', kind: 'char', value: 'book-title', html: '<cite>Book Title</cite>' },
+    { id: 'subtle-ref', label: 'Subtle Reference', kind: 'char', value: 'subtle-ref', html: '<span class="subtle-ref">Subtle Reference</span>' },
+    { id: 'intense-ref', label: 'Intense Reference', kind: 'char', value: 'intense-ref', html: '<span class="intense-ref">Intense Reference</span>' },
+  ];
   protected readonly pipelineOpen = signal(false);
   protected readonly pipelineStep = signal<PipelineStepId>('markdown');
   protected readonly copied = signal(false);
@@ -615,23 +774,30 @@ export class App implements AfterViewInit, OnDestroy {
     this.setUpScrollSync();
     if (!isTourDone()) setTimeout(() => startTour(), 600);
     try {
-      const [{ Editor, defaultValueCtx, rootCtx }, commonmarkModule, { gfm }, { nord }] = await Promise.all([
-        import('@milkdown/core'),
-        import('@milkdown/preset-commonmark'),
-        import('@milkdown/preset-gfm'),
-        import('@milkdown/theme-nord'),
-      ]);
+      const [{ Editor, defaultValueCtx, rootCtx, editorViewCtx }, commonmarkModule, gfmModule, { nord }, { lift }] =
+        await Promise.all([
+          import('@milkdown/core'),
+          import('@milkdown/preset-commonmark'),
+          import('@milkdown/preset-gfm'),
+          import('@milkdown/theme-nord'),
+          import('@milkdown/prose/commands'),
+        ]);
       const { commonmark } = commonmarkModule;
       const styledSpans = await createStyledSpanPlugins();
+      this.blockLayout = await createBlockLayoutPlugins();
       this.toggleStyledSpan = (cls) => this.editor && styledSpans.toggle(this.editor, cls);
+      this.liftCommand = lift;
+      this.getEditorView = () => this.editor?.action((ctx) => ctx.get(editorViewCtx));
       this.commandRunners = {
         heading: (level) => commonmarkModule.wrapInHeadingCommand.run(level ?? 1),
         paragraph: () => commonmarkModule.turnIntoTextCommand.run(),
+        codeBlock: () => commonmarkModule.createCodeBlockCommand.run(),
         blockquote: () => commonmarkModule.wrapInBlockquoteCommand.run(),
         bulletList: () => commonmarkModule.wrapInBulletListCommand.run(),
         orderedList: () => commonmarkModule.wrapInOrderedListCommand.run(),
         strong: () => commonmarkModule.toggleStrongCommand.run(),
         emphasis: () => commonmarkModule.toggleEmphasisCommand.run(),
+        strike: () => gfmModule.toggleStrikethroughCommand.run(),
       };
       this.editor = await Editor.make()
         .config((ctx) => {
@@ -639,12 +805,14 @@ export class App implements AfterViewInit, OnDestroy {
           ctx.set(defaultValueCtx, this.pendingMarkdown);
         })
         .config(nord)
-        .use(commonmark)
-        .use(gfm)
+        .use(this.blockLayout.plugins)
+        .use(gfmModule.gfm)
         .use(styledSpans.plugins)
         .create();
       this.applyThemeToEditor();
       this.editorReady.set(true);
+      document.addEventListener('selectionchange', this.onSelectionChange);
+      this.syncBlockStyle();
       this.observer = new MutationObserver(() => this.schedulePreview());
       this.observer.observe(this.editorRoot.nativeElement, {
         childList: true,
@@ -660,6 +828,7 @@ export class App implements AfterViewInit, OnDestroy {
 
   async ngOnDestroy(): Promise<void> {
     this.observer?.disconnect();
+    document.removeEventListener('selectionchange', this.onSelectionChange);
     this.systemQuery?.removeEventListener('change', this.onSystemSchemeChange);
     this.scrollCleanup.forEach((cleanup) => cleanup());
     this.scrollCleanup = [];
@@ -867,28 +1036,131 @@ export class App implements AfterViewInit, OnDestroy {
   }
 
   protected applyBlockStyle(style: string): void {
-    if (style === 'paragraph') {
-      this.runToolbarCommand('paragraph');
-    } else if (style === 'title' || style === 'heading-1') {
-      this.runToolbarCommand('heading', 1);
-    } else if (style === 'subtitle') {
+    if (style === 'subtitle') {
       this.applyCharacterStyle('emphasis');
-    } else if (style === 'quote' || style === 'intense-quote') {
+      return;
+    }
+
+    const target = this.normalizeBlockStyle(style);
+    if (!target || target === this.currentBlockStyle()) return;
+
+    // Switching block type replaces the block (quotes are unwrapped first); inline marks are untouched.
+    if (target !== 'quote') this.liftOutOfBlockquote();
+
+    if (target === 'paragraph') {
+      this.runToolbarCommand('paragraph');
+    } else if (target === 'quote') {
       this.runToolbarCommand('blockquote');
-    } else if (style.startsWith('heading-')) {
-      const headingLevel = Number(style.slice('heading-'.length));
-      if (headingLevel >= 2 && headingLevel <= 6) {
-        this.runToolbarCommand('heading', headingLevel);
-      } else if (headingLevel === 7) {
-        this.runToolbarCommand('heading', 6);
-      }
+    } else if (target === 'code') {
+      this.runToolbarCommand('codeBlock');
+    } else {
+      this.runToolbarCommand('heading', Number(target.slice('heading-'.length)));
+    }
+    this.syncBlockStyle();
+  }
+
+  private normalizeBlockStyle(style: string): string | null {
+    if (style === 'title') return 'heading-1';
+    if (style === 'intense-quote') return 'quote';
+    if (style === 'heading-7') return 'heading-6';
+    return this.blockStyleOptions.some((option) => option.kind === 'block' && option.value === style) ? style : null;
+  }
+
+  private liftOutOfBlockquote(): void {
+    const view = this.getEditorView?.();
+    if (!view || !this.liftCommand) return;
+    while (this.blockquoteDepth(view) > 0 && this.liftCommand(view.state, view.dispatch)) {
+      // keep lifting until the selection is no longer inside a blockquote
     }
   }
 
-  protected onBlockStyleSelected(event: Event): void {
-    const select = event.currentTarget;
-    if (select instanceof HTMLSelectElement) {
-      this.applyBlockStyle(select.value);
+  private blockquoteDepth(view: EditorView): number {
+    const { $from } = view.state.selection;
+    let depth = 0;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === 'blockquote') depth++;
+    }
+    return depth;
+  }
+
+  // Reads the block under the cursor so the style dropdown mirrors it.
+  protected syncBlockStyle(): void {
+    const view = this.getEditorView?.();
+    if (!view || !this.editorRoot.nativeElement.contains(view.dom)) return;
+    const { $from } = view.state.selection;
+    const parent = $from.parent;
+    let style: string | null = null;
+    if (parent.type.name === 'heading') {
+      style = `heading-${parent.attrs['level']}`;
+    } else if (parent.type.name === 'code_block') {
+      style = 'code';
+    } else if (this.blockquoteDepth(view) > 0) {
+      style = 'quote';
+    } else if (parent.type.name === 'paragraph') {
+      style = 'paragraph';
+    }
+    this.currentBlockStyle.set(style);
+    const align = parent.attrs['align'];
+    this.currentAlign.set(align === 'center' || align === 'right' || align === 'justify' ? align : 'left');
+    this.currentIndent.set(Number(parent.attrs['indent'] ?? 0));
+    this.syncActiveFormats(view);
+  }
+
+  protected isActive(format: string): boolean {
+    return this.activeFormats().has(format);
+  }
+
+  // Collects the inline marks and list types at the selection so toolbar buttons can show as pressed.
+  private syncActiveFormats(view: EditorView): void {
+    const { state } = view;
+    const { $from, from, to, empty } = state.selection;
+    const active = new Set<string>();
+
+    const hasMark = (name: string, cls?: string): boolean => {
+      const markType = state.schema.marks[name];
+      if (!markType) return false;
+      const matches = (mark: { type: unknown; attrs: Record<string, unknown> }) =>
+        mark.type === markType && (cls === undefined || mark.attrs['cls'] === cls);
+      if (empty) return (state.storedMarks ?? $from.marks()).some(matches);
+      let found = false;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (node.isText && node.marks.some(matches)) found = true;
+      });
+      return found;
+    };
+
+    if (hasMark('strong')) active.add('strong');
+    if (hasMark('emphasis')) active.add('emphasis');
+    if (hasMark('strike_through')) active.add('strike');
+    if (active.has('strong') && active.has('emphasis')) active.add('intense');
+    for (const cls of STYLED_SPAN_CLASSES) {
+      if (hasMark('styledSpan', cls)) active.add(cls);
+    }
+    for (let d = $from.depth; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === 'bullet_list') active.add('bullet');
+      if (name === 'ordered_list') active.add('ordered');
+    }
+    this.activeFormats.set(active);
+  }
+
+  protected onBlockStyleChanged(value: string | undefined): void {
+    const option = this.blockStyleOptions.find((item) => item.value === value);
+    if (option?.kind === 'char') {
+      this.applyCharacterStyle(option.value as 'intense' | StyledSpanClass);
+    } else if (value) {
+      this.applyBlockStyle(value);
+    }
+    this.getEditorView?.()?.focus();
+  }
+
+  protected applyGalleryStyle(item: GalleryStyle): void {
+    if (item.kind === 'block') {
+      this.applyBlockStyle(item.value);
+    } else if (item.kind === 'list') {
+      this.applyListStyle(item.value as 'bulletList' | 'orderedList');
+    } else {
+      this.applyCharacterStyle(item.value as 'strong' | 'emphasis' | 'intense' | StyledSpanClass);
     }
   }
 
@@ -896,15 +1168,17 @@ export class App implements AfterViewInit, OnDestroy {
     this.runToolbarCommand(style);
   }
 
-  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'intense' | StyledSpanClass): void {
+  protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'strike' | 'intense' | StyledSpanClass): void {
     if (style === 'intense') {
-      this.runToolbarCommand('strong');
-      this.runToolbarCommand('emphasis');
+      const bothActive = this.isActive('strong') && this.isActive('emphasis');
+      if (bothActive || !this.isActive('strong')) this.runToolbarCommand('strong');
+      if (bothActive || !this.isActive('emphasis')) this.runToolbarCommand('emphasis');
       return;
     }
 
-    if (style !== 'strong' && style !== 'emphasis') {
+    if (style !== 'strong' && style !== 'emphasis' && style !== 'strike') {
       this.toggleStyledSpan?.(style);
+      this.getEditorView?.() && this.syncBlockStyle();
       return;
     }
 
@@ -915,6 +1189,7 @@ export class App implements AfterViewInit, OnDestroy {
     if (!this.editor || !this.commandRunners) return;
 
     this.commandRunners[command](payload);
+    this.syncBlockStyle();
   }
 
   protected onFileSelected(event: Event): void {

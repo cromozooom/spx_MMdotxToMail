@@ -22,6 +22,147 @@ body {
   outline: none;
 }
 
+/* Styles gallery: tiles reuse the editor theme rules via the .milkdown-editor class */
+.milkdown-editor del,
+.milkdown-editor s {
+  text-decoration: line-through;
+}
+
+.styles-gallery.milkdown-editor {
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  align-content: start;
+}
+
+.style-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  border: 1px solid rgb(148 163 184 / 0.5);
+  border-radius: 8px;
+}
+
+.style-tile:hover,
+.style-tile:focus-visible {
+  border-color: var(--brand, #2563eb);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 0.25);
+  outline: none;
+}
+
+.style-tile-preview {
+  display: block;
+  overflow: hidden;
+  min-height: 2.5rem;
+}
+
+.style-tile-preview > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.style-tile-label {
+  align-self: flex-start;
+  font: 11px/1.2 system-ui, sans-serif;
+  color: #64748b;
+}
+
+.styles-gallery.styles-list {
+  grid-template-columns: 1fr;
+}
+
+.block-style-select {
+  min-width: 14rem;
+  --ng-select-height: 36px;
+}
+
+/* Dropdown options are live previews: they reuse the editor theme rules via .milkdown-editor */
+.style-option.milkdown-editor {
+  min-height: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.style-option > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-marked .style-option,
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected .style-option {
+  outline: 2px solid var(--brand, #00e693);
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items {
+  max-height: min(60vh, 480px);
+}
+
+.app-dark .ng-select,
+.app-dark .ng-dropdown-panel {
+  --ng-select-bg: #1e293b;
+  --ng-select-value-text: #e2e8f0;
+  --ng-select-primary-text: #e2e8f0;
+  --ng-select-border: #475569;
+  --ng-select-selected: #334155;
+  --ng-select-marked: #2b3a52;
+  --ng-select-placeholder: #94a3b8;
+  --ng-select-disabled: #1e293b;
+  --ng-select-border-radius: 6px;
+  --ng-select-highlight: #00e693;
+  --ng-select-primary-color: #00e693;
+  --ng-select-box-shadow: rgb(0 0 0 / 0.5);
+  --ng-select-dropdown-bg: #1e293b;
+}
+
+.app-dark .ng-select .ng-select-container,
+.app-dark .ng-dropdown-panel,
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.app-dark .ng-select .ng-arrow-wrapper .ng-arrow {
+  border-top-color: #94a3b8;
+}
+
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items .ng-option {
+  background-color: transparent;
+  color: #e2e8f0;
+}
+
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-marked {
+  background-color: #2b3a52;
+  color: #f8fafc;
+}
+
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected,
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked {
+  background-color: #334155;
+  color: #f8fafc;
+}
+
+.app-dark .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-disabled {
+  color: #64748b;
+}
+
+.app-dark .ng-select.ng-select-disabled .ng-select-container {
+  opacity: 0.55;
+}
+
 /* Floating, draggable and resizable window */
 .floating-panel {
   position: fixed;

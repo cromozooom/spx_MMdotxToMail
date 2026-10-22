@@ -24,6 +24,7 @@
     "@milkdown/prose": "^7.22.3",
     "@milkdown/theme-nord": "^7.22.3",
     "@milkdown/utils": "^7.22.3",
+    "@ng-select/ng-select": "^21.8.2",
     "cheerio": "^1.2.0",
     "colorjs.io": "^0.7.1",
     "docx": "^9.13.0",
