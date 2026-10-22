@@ -26,7 +26,8 @@ describe('App', () => {
     expect(compiled.querySelector('[role="toolbar"]')).toBeTruthy();
     expect(compiled.querySelector('[aria-label="Paragraph style"]')).toBeTruthy();
     expect(compiled.querySelector('[aria-label="Strong (bold)"]')).toBeTruthy();
-    expect(compiled.querySelector('[aria-label="Intense Emphasis"]')).toBeTruthy();
+    // Block-ish styles such as Intense Emphasis live in the style dropdown, not as toolbar buttons.
+    expect(compiled.querySelector('[aria-label="Intense Emphasis"]')).toBeNull();
     expect(compiled.querySelector('[aria-label="Numbered list"]')).toBeTruthy();
     expect(compiled.querySelector('[aria-label="Active theme"]')).toBeTruthy();
     expect(compiled.textContent).toContain('Download JSON');

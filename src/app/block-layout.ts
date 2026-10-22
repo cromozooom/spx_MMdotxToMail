@@ -51,7 +51,7 @@ function readLayout(dom: HTMLElement): { align: string | null; indent: number; l
  * but plain Markdown cannot express them.
  */
 export async function createBlockLayoutPlugins() {
-  const [{ paragraphSchema, headingSchema, commonmark }, { editorViewCtx }] = await Promise.all([
+  const [{ paragraphSchema, headingSchema, blockquoteSchema, commonmark }, { editorViewCtx }] = await Promise.all([
     import('@milkdown/preset-commonmark'),
     import('@milkdown/core'),
   ]);
@@ -87,12 +87,27 @@ export async function createBlockLayoutPlugins() {
   const paragraph = extend(paragraphSchema);
   const heading = extend(headingSchema);
 
+  // Intense quotes are a real attribute on the quote node, rendered as class="intense" (themed like the gallery tile).
+  const blockquote = blockquoteSchema.extendSchema((prev) => (ctx) => {
+    const base = prev(ctx);
+    return {
+      ...base,
+      attrs: { ...base.attrs, intense: { default: false } },
+      parseDOM: base.parseDOM?.map((rule) => ({
+        ...rule,
+        getAttrs: (dom: HTMLElement | string) => ({ intense: typeof dom !== 'string' && dom.classList.contains('intense') }),
+      })),
+      toDOM: (node) => (node.attrs['intense'] ? ['blockquote', { class: 'intense' }, 0] : ['blockquote', 0]) as never,
+    };
+  });
+
   // Swap each stock schema for the extended one at the same position: node order in the schema decides
   // the default block type (e.g. what Enter creates), so paragraph must stay ahead of heading and code.
   const swaps = new Map<unknown, unknown[]>();
   for (const [stock, extended] of [
     [paragraphSchema, paragraph],
     [headingSchema, heading],
+    [blockquoteSchema, blockquote],
   ] as [unknown[], unknown[]][]) {
     stock.forEach((plugin, index) => swaps.set(plugin, index === 0 ? extended : []));
   }
