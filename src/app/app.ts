@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, i
 import { highlightCode } from './code-highlight';
 import { prettyPrintMarkup } from './pretty-print';
 import { StyledSpanClass, STYLED_SPAN_CLASSES, createStyledSpanPlugins } from './styled-span';
-import { BlockAlign, createBlockLayoutPlugins } from './block-layout';
+import { BlockAlign, MarginSide, createBlockLayoutPlugins } from './block-layout';
 import { isTourDone, startTour } from './app-tour';
 import { DotxStarterService } from './dotx-starter.service';
 import {
@@ -220,6 +220,23 @@ interface GalleryStyle {
                   [disabled]="!editorReady()"
                   (change)="onAlignChanged($event?.value)"
                 ></ng-select>
+                <ng-select
+                  id="block-line-height"
+                  class="line-height-select"
+                  aria-label="Line height"
+                  title="Line height"
+                  [items]="lineHeightOptions"
+                  bindLabel="label"
+                  bindValue="value"
+                  [clearable]="true"
+                  [searchable]="false"
+                  [appendTo]="'body'"
+                  placeholder="Line height"
+                  [ngModel]="currentLineHeight()"
+                  [disabled]="!editorReady()"
+                  (change)="onLineHeightChanged($event?.value)"
+                  (clear)="onLineHeightChanged(null)"
+                ></ng-select>
                 <div role="group" aria-label="Indent" class="btn-group">
                 <button
                   type="button"
@@ -239,6 +256,46 @@ interface GalleryStyle {
                   (mousedown)="$event.preventDefault()"
                   (click)="changeIndent(1)"
                 >⇥</button>
+                </div>
+                <div role="group" aria-label="Block spacing" class="btn-group">
+                <div role="group" aria-label="Margin side" class="segmented shrink-0">
+                  <button
+                    type="button"
+                    title="Adjust the margin above the block"
+                    [class.selected]="marginSide() === 'top'"
+                    [attr.aria-pressed]="marginSide() === 'top'"
+                    [disabled]="!editorReady()"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="marginSide.set('top')"
+                  >Top</button>
+                  <button
+                    type="button"
+                    title="Adjust the margin below the block"
+                    [class.selected]="marginSide() === 'bottom'"
+                    [attr.aria-pressed]="marginSide() === 'bottom'"
+                    [disabled]="!editorReady()"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="marginSide.set('bottom')"
+                  >Bottom</button>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Decrease margin"
+                  [title]="'Decrease ' + marginSide() + ' margin (10px)'"
+                  class="format-button"
+                  [disabled]="!editorReady()"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="changeMargin(-1)"
+                >▼</button>
+                <button
+                  type="button"
+                  aria-label="Increase margin"
+                  [title]="'Increase ' + marginSide() + ' margin (10px)'"
+                  class="format-button"
+                  [disabled]="!editorReady()"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="changeMargin(1)"
+                >▲</button>
                 </div>
                 <button
                   type="button"
@@ -516,6 +573,25 @@ export class App implements AfterViewInit, OnDestroy {
   ];
   protected readonly currentAlign = signal<BlockAlign>('left');
   protected readonly currentIndent = signal(0);
+  protected readonly marginSide = signal<MarginSide>('top');
+
+  protected changeMargin(direction: 1 | -1): void {
+    if (!this.editor) return;
+    this.blockLayout?.changeMargin(this.editor, this.marginSide(), direction);
+    this.syncBlockStyle();
+  }
+  protected readonly lineHeightOptions = [1, 1.15, 1.25, 1.5, 1.75, 2, 2.25, 3, 4].map((value) => ({
+    value,
+    label: String(value),
+  }));
+  protected readonly currentLineHeight = signal<number | null>(null);
+
+  // Picking a value overrides the theme's line height; clearing the select falls back to the theme.
+  protected onLineHeightChanged(value: number | null | undefined): void {
+    if (!this.editor) return;
+    this.blockLayout?.setLineHeight(this.editor, value ?? null);
+    this.syncBlockStyle();
+  }
   private blockLayout?: Awaited<ReturnType<typeof createBlockLayoutPlugins>>;
 
   protected onAlignChanged(value: BlockAlign | undefined): void {
@@ -1103,6 +1179,7 @@ export class App implements AfterViewInit, OnDestroy {
     const align = parent.attrs['align'];
     this.currentAlign.set(align === 'center' || align === 'right' || align === 'justify' ? align : 'left');
     this.currentIndent.set(Number(parent.attrs['indent'] ?? 0));
+    this.currentLineHeight.set(parent.attrs['lineHeight'] ?? null);
     this.syncActiveFormats(view);
   }
 

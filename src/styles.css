@@ -82,6 +82,11 @@ body {
   grid-template-columns: 1fr;
 }
 
+.line-height-select {
+  min-width: 7rem;
+  --ng-select-height: 36px;
+}
+
 .block-style-select {
   min-width: 14rem;
   --ng-select-height: 36px;
