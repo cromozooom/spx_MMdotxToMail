@@ -87,10 +87,18 @@ export async function createBlockLayoutPlugins() {
   const paragraph = extend(paragraphSchema);
   const heading = extend(headingSchema);
 
-  // Replace the stock plugins with the extended ones: same ids, so the editor swaps the schemas.
-  const replaced = new Set<unknown>([...(paragraphSchema as unknown[]), ...(headingSchema as unknown[])]);
-  const preset: MilkdownPlugin[] = (commonmark as MilkdownPlugin[]).filter((plugin) => !replaced.has(plugin));
-  const plugins: MilkdownPlugin[] = [...preset, ...(paragraph as unknown as MilkdownPlugin[]), ...(heading as unknown as MilkdownPlugin[])];
+  // Swap each stock schema for the extended one at the same position: node order in the schema decides
+  // the default block type (e.g. what Enter creates), so paragraph must stay ahead of heading and code.
+  const swaps = new Map<unknown, unknown[]>();
+  for (const [stock, extended] of [
+    [paragraphSchema, paragraph],
+    [headingSchema, heading],
+  ] as [unknown[], unknown[]][]) {
+    stock.forEach((plugin, index) => swaps.set(plugin, index === 0 ? extended : []));
+  }
+  const plugins = (commonmark as MilkdownPlugin[]).flatMap(
+    (plugin) => (swaps.has(plugin) ? swaps.get(plugin)! : [plugin]) as MilkdownPlugin[],
+  );
 
   const updateBlocks = (
     editor: Editor,

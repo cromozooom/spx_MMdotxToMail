@@ -188,6 +188,7 @@ interface GalleryStyle {
                 >Styles</button>
                 <label class="sr-only" for="block-style">Paragraph style</label>
                 <ng-select
+                  #blockStyleSelect
                   id="block-style"
                   class="block-style-select"
                   aria-label="Paragraph style"
@@ -511,6 +512,7 @@ interface GalleryStyle {
   `,
 })
 export class App implements AfterViewInit, OnDestroy {
+  @ViewChild('blockStyleSelect') private blockStyleSelect?: NgSelectComponent;
   @ViewChild('editorRoot', { static: true }) private editorRoot!: ElementRef<HTMLDivElement>;
   @ViewChild('previewFrame') private previewFrame?: ElementRef<HTMLIFrameElement>;
   @ViewChild('editorPanel') private editorPanel?: PanelComponent;
@@ -628,7 +630,8 @@ export class App implements AfterViewInit, OnDestroy {
     { value: 'subtle-ref', label: 'Subtle Reference', kind: 'char', html: '<p><span class="subtle-ref">Subtle Reference</span></p>' },
     { value: 'intense-ref', label: 'Intense Reference', kind: 'char', html: '<p><span class="intense-ref">Intense Reference</span></p>' },
   ];
-  private static readonly dropdownCharStyles = ['intense', 'subtle', 'book-title', 'subtle-ref', 'intense-ref'];
+  // Only real span styles take over the dropdown; bold + italic is plain formatting on the block.
+  private static readonly dropdownCharStyles = ['subtle', 'book-title', 'subtle-ref', 'intense-ref'];
   // A character style at the cursor takes over the dropdown; otherwise it shows the block type.
   protected readonly dropdownValue = computed(() => {
     const formats = this.activeFormats();
@@ -1045,7 +1048,7 @@ export class App implements AfterViewInit, OnDestroy {
       ['.milkdown-editor strong', 'strong'],
       ['.milkdown-editor em', 'emphasis'],
       ['.milkdown-editor span.subtle', 'subtleEmphasis'],
-      ['.milkdown-editor strong em', 'intenseEmphasis'],
+      ['.milkdown-editor strong em, .milkdown-editor em strong', 'intenseEmphasis'],
       ['.milkdown-editor cite, .milkdown-editor span.book-title', 'cite'],
       ['.milkdown-editor span.subtle-ref', 'subtleReference'],
       ['.milkdown-editor span.intense-ref', 'intenseReference'],
@@ -1083,7 +1086,7 @@ export class App implements AfterViewInit, OnDestroy {
       ['.email-content strong', 'strong'],
       ['.email-content em', 'emphasis'],
       ['.email-content span.subtle', 'subtleEmphasis'],
-      ['.email-content strong em', 'intenseEmphasis'],
+      ['.email-content strong em, .email-content em strong', 'intenseEmphasis'],
       ['.email-content cite, .email-content span.book-title', 'cite'],
       ['.email-content span.subtle-ref', 'subtleReference'],
       ['.email-content span.intense-ref', 'intenseReference'],
@@ -1099,7 +1102,11 @@ export class App implements AfterViewInit, OnDestroy {
     return rules
       .map(([selector, styleName]) => {
         const style = theme.styles[styleName];
+        // Plain bold/italic only emit what differs from the paragraph, so nesting (em > strong) keeps both effects.
+        const inline = styleName === 'strong' || styleName === 'emphasis';
+        const base = theme.styles.paragraph as unknown as Record<string, string>;
         const declarations = Object.entries(style)
+          .filter(([property, value]) => !inline || base[property] !== value)
           .map(([property, value]) => `${this.toKebabCase(property)}:${value}`)
           .join(';');
         return `${selector}{${declarations}}`;
@@ -1225,6 +1232,8 @@ export class App implements AfterViewInit, OnDestroy {
     const option = this.blockStyleOptions.find((item) => item.value === value);
     if (option?.kind === 'char') {
       this.applyCharacterStyle(option.value as 'intense' | StyledSpanClass);
+      // The model may not change (e.g. Intense Emphasis), so reset what the select displays.
+      this.blockStyleSelect?.writeValue(this.dropdownValue());
     } else if (value) {
       this.applyBlockStyle(value);
     }
@@ -1267,6 +1276,8 @@ export class App implements AfterViewInit, OnDestroy {
 
     this.commandRunners[command](payload);
     this.syncBlockStyle();
+    // Stored marks on an empty block don't fire selectionchange, so re-read once the transaction has settled.
+    requestAnimationFrame(() => this.syncBlockStyle());
   }
 
   protected onFileSelected(event: Event): void {
