@@ -63,7 +63,50 @@ Also <span class="subtle">subtle emphasis</span>, a <span class="book-title">boo
 Your contact email is {email}.
 
 Best,
-The team`;
+The team
+
+---
+
+# Heading 1
+
+## Heading 2
+
+### Heading 3
+
+#### Heading 4
+
+##### Heading 5
+
+###### Heading 6
+
+Paragraph: a normal block of body text.
+
+**Strong**
+
+*Emphasis*
+
+***Intense emphasis***
+
+<span class="subtle">Subtle emphasis</span>
+
+<span class="book-title">Book title</span>
+
+<span class="subtle-ref">Subtle reference</span>
+
+<span class="intense-ref">Intense reference</span>
+
+> Quote
+
+> Intense Quote
+
+- List bullet one- List bullet two
+
+1. List number one
+2. List number two
+
+\`\`\`
+Code block
+\`\`\``;
 
 const themeStorageKey = 'dotx-mailmerge.theme-library.v1';
 const previewStorageKey = 'dotx-mailmerge.preview-mode.v1';
@@ -188,6 +231,7 @@ interface GalleryStyle {
                 >Styles</button>
                 <label class="sr-only" for="block-style">Paragraph style</label>
                 <ng-select
+                  #blockStyleSelect
                   id="block-style"
                   class="block-style-select"
                   aria-label="Paragraph style"
@@ -511,6 +555,7 @@ interface GalleryStyle {
   `,
 })
 export class App implements AfterViewInit, OnDestroy {
+  @ViewChild('blockStyleSelect') private blockStyleSelect?: NgSelectComponent;
   @ViewChild('editorRoot', { static: true }) private editorRoot!: ElementRef<HTMLDivElement>;
   @ViewChild('previewFrame') private previewFrame?: ElementRef<HTMLIFrameElement>;
   @ViewChild('editorPanel') private editorPanel?: PanelComponent;
@@ -621,14 +666,16 @@ export class App implements AfterViewInit, OnDestroy {
     { value: 'heading-5', label: 'Heading 5', kind: 'block', html: '<h5>Heading 5</h5>' },
     { value: 'heading-6', label: 'Heading 6', kind: 'block', html: '<h6>Heading 6</h6>' },
     { value: 'quote', label: 'Quote', kind: 'block', html: '<blockquote>Quote</blockquote>' },
-    { value: 'code', label: 'Code block', kind: 'block', html: '<pre><code>Code block</code></pre>' },
+    { value: 'intense-quote', label: 'Intense Quote', kind: 'block', html: '<blockquote class="intense">Intense quote</blockquote>' },
+    { value: 'code', label: 'Code block', kind: 'block', html: '    <pre><code>Code block</code></pre>' },
     { value: 'subtle', label: 'Subtle Emphasis', kind: 'char', html: '<p><span class="subtle">Subtle Emphasis</span></p>' },
     { value: 'intense', label: 'Intense Emphasis', kind: 'char', html: '<p><strong><em>Intense Emphasis</em></strong></p>' },
     { value: 'book-title', label: 'Book Title', kind: 'char', html: '<p><cite>Book Title</cite></p>' },
     { value: 'subtle-ref', label: 'Subtle Reference', kind: 'char', html: '<p><span class="subtle-ref">Subtle Reference</span></p>' },
     { value: 'intense-ref', label: 'Intense Reference', kind: 'char', html: '<p><span class="intense-ref">Intense Reference</span></p>' },
   ];
-  private static readonly dropdownCharStyles = ['intense', 'subtle', 'book-title', 'subtle-ref', 'intense-ref'];
+  // Only real span styles take over the dropdown; bold + italic is plain formatting on the block.
+  private static readonly dropdownCharStyles = ['subtle', 'book-title', 'subtle-ref', 'intense-ref'];
   // A character style at the cursor takes over the dropdown; otherwise it shows the block type.
   protected readonly dropdownValue = computed(() => {
     const formats = this.activeFormats();
@@ -636,7 +683,15 @@ export class App implements AfterViewInit, OnDestroy {
   });
   private getEditorView?: () => EditorView | undefined;
   private liftCommand?: (state: EditorView['state'], dispatch: EditorView['dispatch']) => boolean;
-  private readonly onSelectionChange = (): void => this.syncBlockStyle();
+  private textSelectionCreate?: (doc: EditorView['state']['doc'], anchor: number, head?: number) => EditorView['state']['selection'];
+  private liftListItemCommand?: (
+    itemType: EditorView['state']['schema']['nodes'][string],
+  ) => (state: EditorView['state'], dispatch: EditorView['dispatch']) => boolean;
+  // ProseMirror applies the DOM selection to its state after selectionchange fires, so read it a tick later.
+  private readonly onSelectionChange = (): void => {
+    this.syncBlockStyle();
+    setTimeout(() => this.syncBlockStyle());
+  };
   protected readonly stylesLayout = signal<'grid' | 'list'>('grid');
   protected readonly styleGallery: GalleryStyle[] = [
     { id: 'paragraph', label: 'Paragraph', kind: 'block', value: 'paragraph', html: '<p>Normal text</p>' },
@@ -850,19 +905,23 @@ export class App implements AfterViewInit, OnDestroy {
     this.setUpScrollSync();
     if (!isTourDone()) setTimeout(() => startTour(), 600);
     try {
-      const [{ Editor, defaultValueCtx, rootCtx, editorViewCtx }, commonmarkModule, gfmModule, { nord }, { lift }] =
+      const [{ Editor, defaultValueCtx, rootCtx, editorViewCtx }, commonmarkModule, gfmModule, { nord }, { lift }, { liftListItem }, { TextSelection }] =
         await Promise.all([
           import('@milkdown/core'),
           import('@milkdown/preset-commonmark'),
           import('@milkdown/preset-gfm'),
           import('@milkdown/theme-nord'),
           import('@milkdown/prose/commands'),
+          import('@milkdown/prose/schema-list'),
+          import('@milkdown/prose/state'),
         ]);
       const { commonmark } = commonmarkModule;
       const styledSpans = await createStyledSpanPlugins();
       this.blockLayout = await createBlockLayoutPlugins();
       this.toggleStyledSpan = (cls) => this.editor && styledSpans.toggle(this.editor, cls);
       this.liftCommand = lift;
+      this.liftListItemCommand = liftListItem;
+      this.textSelectionCreate = (doc, anchor, head) => TextSelection.create(doc, anchor, head);
       this.getEditorView = () => this.editor?.action((ctx) => ctx.get(editorViewCtx));
       this.commandRunners = {
         heading: (level) => commonmarkModule.wrapInHeadingCommand.run(level ?? 1),
@@ -885,9 +944,13 @@ export class App implements AfterViewInit, OnDestroy {
         .use(gfmModule.gfm)
         .use(styledSpans.plugins)
         .create();
+      this.markIntenseQuoteInStarter();
       this.applyThemeToEditor();
       this.editorReady.set(true);
       document.addEventListener('selectionchange', this.onSelectionChange);
+      for (const type of ['mouseup', 'keyup', 'focusin']) {
+        this.editorRoot.nativeElement.addEventListener(type, this.onSelectionChange);
+      }
       this.syncBlockStyle();
       this.observer = new MutationObserver(() => this.schedulePreview());
       this.observer.observe(this.editorRoot.nativeElement, {
@@ -902,9 +965,25 @@ export class App implements AfterViewInit, OnDestroy {
     }
   }
 
+  // Markdown cannot express the Intense Quote variant, so the starter's sample block is flagged after load.
+  private markIntenseQuoteInStarter(): void {
+    const view = this.getEditorView?.();
+    if (!view || this.pendingMarkdown !== initialMarkdown) return;
+    let tr = view.state.tr;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'blockquote' && node.textContent === 'Intense Quote') {
+        tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, intense: true });
+      }
+    });
+    if (tr.docChanged || tr.steps.length) view.dispatch(tr);
+  }
+
   async ngOnDestroy(): Promise<void> {
     this.observer?.disconnect();
     document.removeEventListener('selectionchange', this.onSelectionChange);
+    for (const type of ['mouseup', 'keyup', 'focusin']) {
+      this.editorRoot?.nativeElement.removeEventListener(type, this.onSelectionChange);
+    }
     this.systemQuery?.removeEventListener('change', this.onSystemSchemeChange);
     this.scrollCleanup.forEach((cleanup) => cleanup());
     this.scrollCleanup = [];
@@ -998,9 +1077,11 @@ export class App implements AfterViewInit, OnDestroy {
       const library = parseThemeLibrary(JSON.parse(stored));
       const themes = library.themes;
       if (localStorage.getItem(defaultRevisionKey) !== DEFAULT_THEME_REVISION) {
-        const index = themes.findIndex(({ id }) => id === DEFAULT_THEME.id);
-        if (index >= 0) themes[index] = DEFAULT_THEME;
-        else themes.unshift(DEFAULT_THEME);
+        for (const builtIn of DEFAULT_THEME_LIBRARY) {
+          const index = themes.findIndex(({ id }) => id === builtIn.id);
+          if (index >= 0) themes[index] = builtIn;
+          else themes.push(builtIn);
+        }
         localStorage.setItem(defaultRevisionKey, DEFAULT_THEME_REVISION);
       }
       this.themes.set(themes);
@@ -1045,7 +1126,7 @@ export class App implements AfterViewInit, OnDestroy {
       ['.milkdown-editor strong', 'strong'],
       ['.milkdown-editor em', 'emphasis'],
       ['.milkdown-editor span.subtle', 'subtleEmphasis'],
-      ['.milkdown-editor strong em', 'intenseEmphasis'],
+      ['.milkdown-editor strong em, .milkdown-editor em strong', 'intenseEmphasis'],
       ['.milkdown-editor cite, .milkdown-editor span.book-title', 'cite'],
       ['.milkdown-editor span.subtle-ref', 'subtleReference'],
       ['.milkdown-editor span.intense-ref', 'intenseReference'],
@@ -1063,6 +1144,9 @@ export class App implements AfterViewInit, OnDestroy {
       `${scope} ol{list-style-type:decimal;padding-left:24px}`,
       `${scope} ul ul{list-style-type:circle}`,
       `${scope} li p{margin-top:0;margin-bottom:0}`,
+      // The paragraph inside a quote takes the quote's look instead of stacking its own margins and font on top.
+      `${scope} blockquote p{margin-top:0;margin-bottom:0;font:inherit;color:inherit;letter-spacing:inherit;line-height:inherit;background:none}`,
+      `${scope} blockquote p + p{margin-top:8px}`,
     ].join('\n');
   }
 
@@ -1083,7 +1167,7 @@ export class App implements AfterViewInit, OnDestroy {
       ['.email-content strong', 'strong'],
       ['.email-content em', 'emphasis'],
       ['.email-content span.subtle', 'subtleEmphasis'],
-      ['.email-content strong em', 'intenseEmphasis'],
+      ['.email-content strong em, .email-content em strong', 'intenseEmphasis'],
       ['.email-content cite, .email-content span.book-title', 'cite'],
       ['.email-content span.subtle-ref', 'subtleReference'],
       ['.email-content span.intense-ref', 'intenseReference'],
@@ -1099,7 +1183,11 @@ export class App implements AfterViewInit, OnDestroy {
     return rules
       .map(([selector, styleName]) => {
         const style = theme.styles[styleName];
+        // Plain bold/italic only emit what differs from the paragraph, so nesting (em > strong) keeps both effects.
+        const inline = styleName === 'strong' || styleName === 'emphasis';
+        const base = theme.styles.paragraph as unknown as Record<string, string>;
         const declarations = Object.entries(style)
+          .filter(([property, value]) => !inline || base[property] !== value)
           .map(([property, value]) => `${this.toKebabCase(property)}:${value}`)
           .join(';');
         return `${selector}{${declarations}}`;
@@ -1118,15 +1206,22 @@ export class App implements AfterViewInit, OnDestroy {
     }
 
     const target = this.normalizeBlockStyle(style);
+    this.syncBlockStyle();
     if (!target || target === this.currentBlockStyle()) return;
 
+    if (target === 'quote' || target === 'intense-quote') {
+      this.applyQuote(target === 'intense-quote');
+      this.syncBlockStyle();
+      return;
+    }
+
     // Switching block type replaces the block (quotes are unwrapped first); inline marks are untouched.
-    if (target !== 'quote') this.liftOutOfBlockquote();
+    this.liftOutOfBlockquote();
+    // A list item can only hold a paragraph first, so other block types need the item lifted out of its list.
+    if (target !== 'paragraph') this.liftOutOfList();
 
     if (target === 'paragraph') {
       this.runToolbarCommand('paragraph');
-    } else if (target === 'quote') {
-      this.runToolbarCommand('blockquote');
     } else if (target === 'code') {
       this.runToolbarCommand('codeBlock');
     } else {
@@ -1135,11 +1230,49 @@ export class App implements AfterViewInit, OnDestroy {
     this.syncBlockStyle();
   }
 
+  // Quote and Intense Quote share one node; the variant is an attribute, so an existing quote is never wrapped again.
+  private applyQuote(intense: boolean): void {
+    const view = this.getEditorView?.();
+    if (!view) return;
+    if (this.blockquoteDepth(view) === 0) {
+      this.liftOutOfList();
+      this.runToolbarCommand('blockquote');
+    }
+    const fresh = this.getEditorView?.();
+    if (!fresh) return;
+    while (this.blockquoteDepth(fresh) > 1 && this.liftCommand?.(fresh.state, fresh.dispatch)) {
+      // collapse accidental nesting down to a single quote
+    }
+    if (fresh.state.selection.$from.parent.type.name !== 'paragraph') this.commandRunners?.['paragraph']();
+    const { $from } = fresh.state.selection;
+    for (let d = $from.depth; d > 0; d--) {
+      const node = $from.node(d);
+      if (node.type.name === 'blockquote') {
+        fresh.dispatch(fresh.state.tr.setNodeMarkup($from.before(d), undefined, { ...node.attrs, intense }));
+        break;
+      }
+    }
+  }
+
   private normalizeBlockStyle(style: string): string | null {
     if (style === 'title') return 'heading-1';
-    if (style === 'intense-quote') return 'quote';
     if (style === 'heading-7') return 'heading-6';
     return this.blockStyleOptions.some((option) => option.kind === 'block' && option.value === style) ? style : null;
+  }
+
+  private liftOutOfList(): void {
+    const view = this.getEditorView?.();
+    const itemType = view?.state.schema.nodes['list_item'];
+    if (!view || !itemType || !this.liftListItemCommand) return;
+    const inList = () => {
+      const { $from } = view.state.selection;
+      for (let d = $from.depth; d > 0; d--) if ($from.node(d).type === itemType) return true;
+      return false;
+    };
+    const lifter = this.liftListItemCommand(itemType);
+    while (inList() && lifter(view.state, view.dispatch)) {
+      // keep lifting until the block is out of every nested list
+    }
   }
 
   private liftOutOfBlockquote(): void {
@@ -1148,6 +1281,14 @@ export class App implements AfterViewInit, OnDestroy {
     while (this.blockquoteDepth(view) > 0 && this.liftCommand(view.state, view.dispatch)) {
       // keep lifting until the selection is no longer inside a blockquote
     }
+  }
+
+  private nearestQuote(view: EditorView) {
+    const { $from } = view.state.selection;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === 'blockquote') return $from.node(d);
+    }
+    return null;
   }
 
   private blockquoteDepth(view: EditorView): number {
@@ -1171,7 +1312,8 @@ export class App implements AfterViewInit, OnDestroy {
     } else if (parent.type.name === 'code_block') {
       style = 'code';
     } else if (this.blockquoteDepth(view) > 0) {
-      style = 'quote';
+      const quote = this.nearestQuote(view);
+      style = quote?.attrs['intense'] ? 'intense-quote' : 'quote';
     } else if (parent.type.name === 'paragraph') {
       style = 'paragraph';
     }
@@ -1225,6 +1367,8 @@ export class App implements AfterViewInit, OnDestroy {
     const option = this.blockStyleOptions.find((item) => item.value === value);
     if (option?.kind === 'char') {
       this.applyCharacterStyle(option.value as 'intense' | StyledSpanClass);
+      // The model may not change (e.g. Intense Emphasis), so reset what the select displays.
+      this.blockStyleSelect?.writeValue(this.dropdownValue());
     } else if (value) {
       this.applyBlockStyle(value);
     }
@@ -1246,6 +1390,43 @@ export class App implements AfterViewInit, OnDestroy {
   }
 
   protected applyCharacterStyle(style: 'strong' | 'emphasis' | 'strike' | 'intense' | StyledSpanClass): void {
+    const restore = this.selectWordAtCursor();
+    try {
+      this.applyCharacterStyleToSelection(style);
+    } finally {
+      restore?.();
+      this.syncBlockStyle();
+    }
+  }
+
+  // With only a caret, marks would apply to text typed later, so a caret in or at the end of a word styles that word.
+  private selectWordAtCursor(): (() => void) | null {
+    const view = this.getEditorView?.();
+    if (!view || !this.textSelectionCreate) return null;
+    const { selection, doc } = view.state;
+    if (!selection.empty || !selection.$from.parent.isTextblock) return null;
+
+    const { $from } = selection;
+    const start = $from.start();
+    // Every inline leaf counts as one character, so string offsets map 1:1 onto document positions.
+    const text = doc.textBetween(start, $from.end(), '\ufffc', '\ufffc');
+    const offset = $from.pos - start;
+    const isWord = (char: string | undefined) => !!char && /\S/.test(char) && char !== '\ufffc';
+    let from = offset;
+    let to = offset;
+    while (from > 0 && isWord(text[from - 1])) from--;
+    while (to < text.length && isWord(text[to])) to++;
+    if (from === to) return null;
+
+    const originalPos = $from.pos;
+    view.dispatch(view.state.tr.setSelection(this.textSelectionCreate(doc, start + from, start + to)));
+    return () => {
+      const current = this.getEditorView?.();
+      if (current) current.dispatch(current.state.tr.setSelection(this.textSelectionCreate!(current.state.doc, originalPos)));
+    };
+  }
+
+  private applyCharacterStyleToSelection(style: 'strong' | 'emphasis' | 'strike' | 'intense' | StyledSpanClass): void {
     if (style === 'intense') {
       const bothActive = this.isActive('strong') && this.isActive('emphasis');
       if (bothActive || !this.isActive('strong')) this.runToolbarCommand('strong');
@@ -1267,6 +1448,8 @@ export class App implements AfterViewInit, OnDestroy {
 
     this.commandRunners[command](payload);
     this.syncBlockStyle();
+    // Stored marks on an empty block don't fire selectionchange, so re-read once the transaction has settled.
+    requestAnimationFrame(() => this.syncBlockStyle());
   }
 
   protected onFileSelected(event: Event): void {

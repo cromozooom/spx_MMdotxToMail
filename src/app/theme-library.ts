@@ -160,10 +160,91 @@ export const DEFAULT_THEME: DocumentTheme = {
   },
 };
 
-export const DEFAULT_THEME_LIBRARY: DocumentTheme[] = [DEFAULT_THEME];
+const goldFont = 'Georgia, Times New Roman, serif';
+const goldText: ThemeTextStyle = {
+  ...defaultTextStyle,
+  fontFamily: goldFont,
+  fontSize: '17px',
+  lineHeight: '1.7',
+  color: '#3b2f14',
+};
+const goldHeading = (size: string, lineHeight: string): ThemeTextStyle => ({
+  ...goldText,
+  color: '#8a6100',
+  fontSize: size,
+  fontWeight: '700',
+  lineHeight,
+  letterSpacing: '0.01em',
+});
+const goldBox = {
+  marginTop: '18px',
+  marginBottom: '18px',
+  marginLeft: '0px',
+  marginRight: '0px',
+  paddingTop: '10px',
+  paddingRight: '18px',
+  paddingBottom: '10px',
+  paddingLeft: '18px',
+};
 
-// Bump when DEFAULT_THEME changes so saved copies in local storage are refreshed once.
-export const DEFAULT_THEME_REVISION = '4';
+// Minor Third scale (x1.2) on a 17px serif base, with a gold and brown palette.
+export const GOLD_THEME: DocumentTheme = {
+  id: 'gold',
+  name: 'Gold (Minor Third)',
+  colors: {
+    emailBackground: '#f6efd9',
+    contentBackground: '#fffdf7',
+    editorBackground: '#fffdf7',
+    editorForeground: '#3b2f14',
+  },
+  styles: {
+    ...(Object.fromEntries(THEME_STYLE_NAMES.map((name) => [name, { ...goldText }])) as Record<ThemeStyleName, ThemeTextStyle>),
+    title: { ...goldHeading('42.3px', '1.15'), color: '#6b4a00', marginTop: '0px' },
+    subtitle: { ...goldText, fontSize: '20px', fontStyle: 'italic', color: '#8c7a4d', marginTop: '0px' },
+    heading1: goldHeading('35.3px', '1.2'),
+    heading2: goldHeading('29.4px', '1.25'),
+    heading3: goldHeading('24.5px', '1.3'),
+    heading4: goldHeading('20.4px', '1.35'),
+    heading5: goldHeading('17px', '1.4'),
+    heading6: { ...goldHeading('14.2px', '1.4'), letterSpacing: '0.08em' },
+    quote: {
+      ...goldText,
+      ...goldBox,
+      fontStyle: 'italic',
+      color: '#5c4a1e',
+      backgroundColor: '#fbf3d9',
+      borderLeft: '4px solid #d4a72c',
+    },
+    intenseQuote: {
+      ...goldText,
+      ...goldBox,
+      fontStyle: 'italic',
+      fontWeight: '600',
+      color: '#fff8dc',
+      backgroundColor: '#8a6100',
+      borderLeft: '6px solid #f2c94c',
+    },
+    list: { ...goldText, marginTop: '8px', marginBottom: '8px' },
+    strong: { ...goldText, fontWeight: '700' },
+    emphasis: { ...goldText, fontStyle: 'italic' },
+    subtleEmphasis: { ...goldText, fontStyle: 'italic', color: '#a8966a' },
+    intenseEmphasis: { ...goldText, fontWeight: '700', fontStyle: 'italic', color: '#8a6100' },
+    cite: { ...goldText, fontStyle: 'italic', textDecoration: 'underline' },
+    subtleReference: { ...goldText, color: '#8c7a4d', fontSize: '13.5px', letterSpacing: '0.08em' },
+    intenseReference: {
+      ...goldText,
+      fontWeight: '700',
+      color: '#5c3b00',
+      backgroundColor: '#f7dc6f',
+      letterSpacing: '0.05em',
+    },
+  },
+};
+
+export const DEFAULT_THEME_LIBRARY: DocumentTheme[] = [DEFAULT_THEME, GOLD_THEME];
+
+// Bump when a built-in theme changes so saved copies in local storage are refreshed once.
+export const DEFAULT_THEME_REVISION = '5';
 
 const lengthPattern = /^-?\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/;
 const borderPattern = /^(?:none|\d+(?:\.\d+)?px (?:solid|dashed|dotted|double) (?:#[\da-fA-F]{3,8}|[a-zA-Z]+))$/;

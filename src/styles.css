@@ -692,6 +692,15 @@ body {
   color: var(--ui-text);
 }
 
+.app-dark .driver-popover-close-btn {
+  color: var(--ui-text-muted, var(--ui-text));
+}
+
+.app-dark .driver-popover-close-btn:hover,
+.app-dark .driver-popover-close-btn:focus {
+  color: var(--ui-text);
+}
+
 .app-dark .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: var(--ui-surface); }
 .app-dark .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: var(--ui-surface); }
 .app-dark .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--ui-surface); }
